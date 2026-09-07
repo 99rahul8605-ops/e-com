@@ -172,7 +172,7 @@ Application limits protect Node/MongoDB from ordinary abuse and many Layer-7 att
 - paginated users
 - order status update: pending / paid / delivered / rejected
 - product add / edit / delete
-- product image upload (JPG/PNG/WebP, 2 MB default) with preview/remove
+- product image upload (JPG/PNG/WebP/AVIF, 2 MB default) with preview/remove
 - exact-amount UPI QR generated from a server-verified checkout quote
 - UPI setting
 - admin password change
@@ -211,7 +211,7 @@ The UPI ID is configured in Admin → Settings. There is still no automatic paym
 This build includes:
 - Server-generated UPI QR with exact MongoDB-verified cart amount.
 - Buy Now beside Add to cart.
-- Product image upload from Admin -> Products (JPG/PNG/WebP, max 2 MB by default).
+- Product image upload from Admin -> Products (JPG/PNG/WebP/AVIF, max 2 MB by default).
 - Admin-configurable support contact + support link, shown on the customer store.
 - Google-only login.
 - `/config.js` generated dynamically from `backend/.env`; keep `GOOGLE_CLIENT_ID` only in `.env`.
@@ -238,4 +238,15 @@ Admin settings must contain a valid UPI ID before checkout can generate a QR.
 
 
 ## Mobile product image picker
-The admin product image input uses `accept="image/*"` and does not use the `capture` attribute, so supported mobile browsers can offer Gallery/Photos/Files instead of forcing the camera. The server still validates uploaded bytes and accepts genuine JPG, PNG, or WebP files up to the configured limit.
+The admin product image input uses `accept="image/*"` and does not use the `capture` attribute, so supported mobile browsers can offer Gallery/Photos/Files instead of forcing the camera. The server still validates uploaded bytes and accepts genuine JPG, PNG, WebP, or AVIF files up to the configured limit.
+
+
+## Image picker improvements (v4)
+
+Admin -> Products now supports:
+- normal Choose image picker
+- drag & drop from File Explorer
+- clipboard paste (Ctrl+V) for copied images/screenshots
+- JPG, PNG, WebP and AVIF uploads (2 MB default limit)
+
+Windows File Explorer Gallery is a virtual shell view and Windows may refuse direct browser file selection from it. This is an OS limitation, not a website permission issue. Use Pictures/Downloads, drag & drop, or clipboard paste instead.

@@ -241,7 +241,7 @@ function safeDownloadUrl(value) {
 function safeProductImage(value) {
   const text = textField(value, 'product image', 2000);
   if (!text) return '';
-  if (/^\/uploads\/products\/[A-Za-z0-9._-]+\.(?:jpg|png|webp)$/i.test(text)) return text;
+  if (/^\/uploads\/products\/[A-Za-z0-9._-]+\.(?:jpg|png|webp|avif)$/i.test(text)) return text;
   let url;
   try { url = new URL(text); } catch { throw httpError(400, 'Product image must be a valid uploaded image or HTTPS URL'); }
   if (url.protocol !== 'https:' || url.username || url.password) throw httpError(400, 'Product image URL must use HTTPS');
@@ -252,10 +252,14 @@ function productImageExtension(buffer) {
   if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'jpg';
   if (buffer.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]))) return 'png';
   if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  if (buffer.length >= 16 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') {
+    const brands = buffer.subarray(8, Math.min(buffer.length, 64)).toString('ascii');
+    if (brands.includes('avif') || brands.includes('avis')) return 'avif';
+  }
   return '';
 }
 async function removeLocalProductImage(image) {
-  if (!/^\/uploads\/products\/[A-Za-z0-9._-]+\.(?:jpg|png|webp)$/i.test(String(image || ''))) return;
+  if (!/^\/uploads\/products\/[A-Za-z0-9._-]+\.(?:jpg|png|webp|avif)$/i.test(String(image || ''))) return;
   const filename = path.basename(image);
   const target = path.join(PRODUCT_UPLOAD_DIR, filename);
   if (!target.startsWith(PRODUCT_UPLOAD_DIR + path.sep)) return;
@@ -654,9 +658,9 @@ app.get('/api/admin/stats', requireAdmin, async (req, res, next) => {
 
 app.post('/api/admin/product-image', requireAdmin, adminWriteLimiter, productImageUpload.single('image'), async (req, res, next) => {
   try {
-    if (!req.file?.buffer) throw httpError(400, 'Choose a JPG, PNG or WebP image');
+    if (!req.file?.buffer) throw httpError(400, 'Choose a JPG, PNG, WebP or AVIF image');
     const ext = productImageExtension(req.file.buffer);
-    if (!ext) throw httpError(400, 'Only genuine JPG, PNG and WebP images are allowed');
+    if (!ext) throw httpError(400, 'Only genuine JPG, PNG, WebP and AVIF images are allowed');
     await fs.promises.mkdir(PRODUCT_UPLOAD_DIR, { recursive:true, mode:0o755 });
     const filename = `prod-${Date.now()}-${crypto.randomBytes(10).toString('hex')}.${ext}`;
     const target = path.join(PRODUCT_UPLOAD_DIR, filename);

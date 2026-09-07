@@ -22,7 +22,7 @@
 .order-filter{display:flex;gap:8px;align-items:center}.order-filter select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}.pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px}.pager .small{min-width:110px;text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s;z-index:100}.toast.show{opacity:1;transform:translate(-50%,0)}
 .notice{padding:12px 14px;border-radius:9px;background:var(--accent-soft);border:1px solid #efd7ad;font-size:13px;line-height:1.5}.login-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
-.image-picker{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.image-preview{width:150px;height:110px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafbfc;color:var(--muted);font-size:12px}.image-preview img{width:100%;height:100%;object-fit:cover;display:block}.product-thumb{width:58px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#f5f6f8}.upload-help{font-size:12px;color:var(--muted);margin-top:6px}
+.image-picker{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.image-preview{width:150px;height:110px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafbfc;color:var(--muted);font-size:12px}.image-preview img{width:100%;height:100%;object-fit:cover;display:block}.product-thumb{width:58px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#f5f6f8}.upload-help{font-size:12px;color:var(--muted);margin-top:6px}.image-dropzone{border:2px dashed #c7ced8;border-radius:10px;padding:16px;text-align:center;background:#fafbfc;transition:.15s;outline:none}.image-dropzone.dragover{border-color:var(--accent);background:var(--accent-soft)}.image-dropzone strong{display:block;margin-bottom:4px}.image-dropzone .drop-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px}.image-dropzone input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.selected-file{font-size:12px;color:var(--ink);margin-top:8px;word-break:break-all}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.span2{grid-column:auto}.wrap{padding:18px}.topbar-inner{padding:12px 18px}}@media(max-width:520px){.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:14px}.stat .value{font-size:23px}.top-actions .store-text{display:none}}
 </style>
 </head>
@@ -77,7 +77,7 @@
           <div class="field"><label>Subject</label><input id="pSubject" maxlength="120"></div>
           <div class="field"><label>Type</label><select id="pType"><option value="ebook">E-book</option><option value="handwritten">Handwritten notes</option><option value="guide">Study guide</option><option value="template">Template</option><option value="website">Website template</option></select></div>
           <div class="field"><label>Price (₹)</label><input id="pPrice" type="number" min="0" step="0.01"></div>
-          <div class="field span2"><label>Product image</label><div class="image-picker"><div class="image-preview" id="pImagePreview">No image</div><div style="flex:1;min-width:220px"><input id="pImage" type="file" accept="image/*,.jpg,.jpeg,.png,.webp"><div class="upload-help">Choose from Gallery / Photos / Files · JPG, PNG or WebP · max 2 MB. Camera is not forced.</div><button id="removeImageBtn" type="button" class="mini danger hidden" style="margin-top:8px">Remove current image</button></div></div></div>
+          <div class="field span2"><label>Product image</label><div class="image-picker"><div class="image-preview" id="pImagePreview">No image</div><div style="flex:1;min-width:240px"><div id="imageDropzone" class="image-dropzone" tabindex="0"><strong>Drop or paste an image here</strong><div class="upload-help">Drag an image from Explorer, press Ctrl+V after copying an image, or choose a file.</div><div class="drop-actions"><button id="chooseImageBtn" type="button" class="mini">Choose image</button><input id="pImage" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.avif"></div><div id="selectedImageName" class="selected-file"></div></div><div class="upload-help">JPG, PNG, WebP or AVIF · max 2 MB. Windows File Explorer Gallery is a virtual folder, so use Pictures/Downloads, drag & drop, or paste if Gallery refuses direct file selection.</div><button id="removeImageBtn" type="button" class="mini danger hidden" style="margin-top:8px">Remove current image</button></div></div></div>
           <div class="field span2"><label>Description</label><textarea id="pDesc" maxlength="2000"></textarea></div>
           <div class="field span2"><label>Download link</label><input id="pFile" type="url" maxlength="2000" placeholder="https://..."></div>
         </div>
@@ -120,6 +120,7 @@ let stats = {products:0,orders:0,pending:0,users:0};
 let editingProductId = null;
 let currentProductImage = '';
 let previewObjectUrl = '';
+let selectedProductImageFile = null;
 let orderPage = 1, orderPages = 1;
 let userPage = 1, userPages = 1;
 const PAGE_SIZE = 50;
@@ -160,6 +161,21 @@ function setImagePreview(url){
   else{box.textContent='No image';$('removeImageBtn').classList.add('hidden');}
 }
 function clearPreviewObjectUrl(){if(previewObjectUrl){URL.revokeObjectURL(previewObjectUrl);previewObjectUrl='';}}
+function imageFileLooksSupported(file){
+  if(!file)return false;
+  const name=String(file.name||'').toLowerCase();
+  const type=String(file.type||'').toLowerCase();
+  return ['image/jpeg','image/png','image/webp','image/avif'].includes(type)||/\.(?:jpe?g|png|webp|avif)$/.test(name);
+}
+function handleProductImageFile(file){
+  clearPreviewObjectUrl();
+  if(!file){selectedProductImageFile=null;$('selectedImageName').textContent='';setImagePreview(currentProductImage);return false;}
+  if(file.size>2*1024*1024){toast('Image must be 2 MB or smaller');selectedProductImageFile=null;$('selectedImageName').textContent='';setImagePreview(currentProductImage);return false;}
+  if(!imageFileLooksSupported(file)){toast('Use JPG, PNG, WebP or AVIF');selectedProductImageFile=null;$('selectedImageName').textContent='';setImagePreview(currentProductImage);return false;}
+  selectedProductImageFile=file;
+  $('selectedImageName').textContent=`Selected: ${file.name||'pasted-image'} (${Math.max(1,Math.round(file.size/1024))} KB)`;
+  previewObjectUrl=URL.createObjectURL(file);setImagePreview(previewObjectUrl);return true;
+}
 
 let loginLockTimer=null;
 function showLoginLock(seconds){
@@ -218,19 +234,26 @@ function renderProducts(){
 }
 function editProduct(id){
   const p=products.find(x=>x.id===id);if(!p)return;editingProductId=id;currentProductImage=p.image||'';clearPreviewObjectUrl();
-  $('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('pImage').value='';setImagePreview(currentProductImage);$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});
+  $('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('pImage').value='';selectedProductImageFile=null;$('selectedImageName').textContent='';setImagePreview(currentProductImage);$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});
 }
 function resetProductForm(){
-  editingProductId=null;currentProductImage='';clearPreviewObjectUrl();$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pImage').value='';$('pType').value='ebook';setImagePreview('');$('cancelEditBtn').classList.add('hidden');
+  editingProductId=null;currentProductImage='';clearPreviewObjectUrl();$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pImage').value='';selectedProductImageFile=null;$('selectedImageName').textContent='';$('pType').value='ebook';setImagePreview('');$('cancelEditBtn').classList.add('hidden');
 }
-$('pImage').onchange=()=>{clearPreviewObjectUrl();const file=$('pImage').files?.[0];if(!file){setImagePreview(currentProductImage);return;}if(file.size>2*1024*1024){$('pImage').value='';toast('Image must be 2 MB or smaller');setImagePreview(currentProductImage);return;}previewObjectUrl=URL.createObjectURL(file);setImagePreview(previewObjectUrl);};
-$('removeImageBtn').onclick=()=>{clearPreviewObjectUrl();currentProductImage='';$('pImage').value='';setImagePreview('');};
+$('chooseImageBtn').onclick=()=>$('pImage').click();
+$('pImage').onchange=()=>{const file=$('pImage').files?.[0]||null;if(!handleProductImageFile(file))$('pImage').value='';};
+const imageDropzone=$('imageDropzone');
+['dragenter','dragover'].forEach(type=>imageDropzone.addEventListener(type,e=>{e.preventDefault();e.stopPropagation();imageDropzone.classList.add('dragover');}));
+['dragleave','drop'].forEach(type=>imageDropzone.addEventListener(type,e=>{e.preventDefault();e.stopPropagation();imageDropzone.classList.remove('dragover');}));
+imageDropzone.addEventListener('drop',e=>{const file=[...(e.dataTransfer?.files||[])].find(f=>String(f.type||'').startsWith('image/')||/\.(?:jpe?g|png|webp|avif)$/i.test(f.name||''));if(!file){toast('Drop a JPG, PNG, WebP or AVIF image');return;}$('pImage').value='';handleProductImageFile(file);});
+imageDropzone.addEventListener('paste',e=>{const file=[...(e.clipboardData?.files||[])].find(f=>String(f.type||'').startsWith('image/'));if(!file){const item=[...(e.clipboardData?.items||[])].find(i=>String(i.type||'').startsWith('image/'));if(item){const pasted=item.getAsFile();if(pasted){e.preventDefault();$('pImage').value='';handleProductImageFile(pasted);return;}}toast('Clipboard does not contain an image');return;}e.preventDefault();$('pImage').value='';handleProductImageFile(file);});
+document.addEventListener('paste',e=>{if($('tabProducts').classList.contains('hidden'))return;if(document.activeElement&&['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&document.activeElement!==imageDropzone)return;const item=[...(e.clipboardData?.items||[])].find(i=>String(i.type||'').startsWith('image/'));if(!item)return;const file=item.getAsFile();if(file){e.preventDefault();$('pImage').value='';handleProductImageFile(file);}});
+$('removeImageBtn').onclick=()=>{clearPreviewObjectUrl();currentProductImage='';selectedProductImageFile=null;$('selectedImageName').textContent='';$('pImage').value='';setImagePreview('');};
 $('cancelEditBtn').onclick=resetProductForm;
 $('saveProductBtn').onclick=async()=>{
   const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}
   const btn=$('saveProductBtn');btn.disabled=true;let uploadedImage='';
   try{
-    let image=currentProductImage;const file=$('pImage').files?.[0];if(file){uploadedImage=await uploadProductImage(file);image=uploadedImage;}
+    let image=currentProductImage;const file=selectedProductImageFile;if(file){uploadedImage=await uploadProductImage(file);image=uploadedImage;}
     const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim(),image};
     if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});
     const data=await api('/api/admin/products');products=data.products||[];stats=await api('/api/admin/stats');resetProductForm();renderProducts();renderStats();toast('Product saved');
