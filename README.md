@@ -354,3 +354,12 @@ curl http://127.0.0.1:3000/api/health
 ```
 
 The server refuses to start if `PRIVATE_PRODUCT_DIR` points inside `public/`.
+
+## V6 mobile modal + product details fix
+
+- Mobile Account / My Orders / Checkout modal close buttons use larger touch targets and explicit touch handling.
+- Tapping outside an open modal closes it; Escape also closes the top open modal on desktop.
+- Body scrolling is locked while a modal is open to reduce mobile scroll/tap glitches.
+- Product cards are clickable/tappable and open a full product details modal.
+- Full details show the complete description, image, subject/category, price, Buy now and Add to cart.
+- Existing cart, checkout, payment, Google login, private ZIP download and admin systems are unchanged.
