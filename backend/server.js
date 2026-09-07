@@ -13,7 +13,7 @@ const { OAuth2Client } = require('google-auth-library');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
-const FRONTEND_DIR = path.resolve(__dirname, '..');
+const FRONTEND_DIR = path.resolve(__dirname, '..', 'public');
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || 'team_secret_store';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -383,6 +383,14 @@ app.put('/api/admin/password', requireAdmin, authLimiter, async (req, res, next)
     );
     res.json({ ok:true });
   } catch (err) { next(err); }
+});
+
+// Separate admin entry point. It is intentionally not linked from the public storefront.
+// Admin API data remains protected by requireAdmin; hiding the URL is only a UI choice.
+app.get(['/admin', '/admin-login'], (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.sendFile(path.join(FRONTEND_DIR, 'admin.html'));
 });
 
 // Serve the frontend from the same Node/Express app.

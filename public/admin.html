@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Team Secret Admin</title>
+<script src="/config.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#172033;--muted:#687386;--line:#e1e5eb;--accent:#c7842a;--accent-soft:#fbf3e2;--danger:#a63b32;--ok:#2f6d4c;--blue:#315f91;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}
+.hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:12.5px}.wrap{max-width:1180px;margin:auto;padding:24px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 16px rgba(23,32,51,.04)}
+.login-shell{min-height:100vh;display:grid;place-items:center;padding:24px}.login-card{width:min(420px,100%);padding:30px}.brand{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}.login-card h1{margin:0 0 8px;font-size:28px}.login-card p{margin:0 0 24px;color:var(--muted);line-height:1.5}
+.field{margin-bottom:14px}.field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#fff;color:var(--ink);outline:none}.field textarea{min-height:90px;resize:vertical}.field input:focus,.field textarea:focus,.field select:focus{border-color:#b9a078;box-shadow:0 0 0 3px rgba(199,132,42,.10)}
+.btn{border:0;border-radius:9px;padding:10px 15px;font-weight:700}.btn-primary{background:var(--ink);color:#fff}.btn-outline{background:#fff;color:var(--ink);border:1px solid var(--line)}.btn-danger{background:#fff;color:var(--danger);border:1px solid #efd0cc}.btn-block{width:100%}.btn:disabled{opacity:.55;cursor:not-allowed}
+.topbar{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}.topbar-inner{max-width:1180px;margin:auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.top-title{font-weight:800}.top-actions{display:flex;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0}.stat{padding:18px}.stat .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}.stat .value{font-size:28px;font-weight:800;margin-top:6px}
+.tabs{display:flex;gap:6px;overflow:auto;border-bottom:1px solid var(--line);margin-bottom:20px}.tab{background:none;border:0;padding:12px 14px;color:var(--muted);font-weight:700;border-bottom:2px solid transparent;white-space:nowrap}.tab.active{color:var(--ink);border-color:var(--accent)}
+.section-card{padding:20px;margin-bottom:20px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.section-head h2{margin:0;font-size:18px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.span2{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#fafbfc}tbody tr:last-child td{border-bottom:0}.mini{padding:7px 10px;border-radius:7px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:12px}.mini.danger{color:var(--danger)}
+.status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11.5px;font-weight:800;text-transform:capitalize}.pending{background:#fbf3e2;color:#8a5a16}.paid{background:#eef6f1;color:var(--ok)}.delivered{background:#eaf1fa;color:var(--blue)}.rejected{background:#fbedeb;color:var(--danger)}
+.order-filter{display:flex;gap:8px;align-items:center}.order-filter select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}
+.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s;z-index:100}.toast.show{opacity:1;transform:translate(-50%,0)}
+.notice{padding:12px 14px;border-radius:9px;background:var(--accent-soft);border:1px solid #efd7ad;font-size:13px;line-height:1.5}.login-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
+@media(max-width:850px){.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.span2{grid-column:auto}.wrap{padding:18px}.topbar-inner{padding:12px 18px}}@media(max-width:520px){.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:14px}.stat .value{font-size:23px}.top-actions .store-text{display:none}}
+</style>
+</head>
+<body>
+<div id="loginView" class="login-shell">
+  <div class="login-card card">
+    <div class="brand">Team Secret</div>
+    <h1>Admin sign in</h1>
+    <p>This area is separate from the customer store. Enter the admin password to continue.</p>
+    <form id="loginForm">
+      <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" autocomplete="current-password" required autofocus></div>
+      <button id="loginBtn" class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <div id="loginError" class="login-error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="dashboardView" class="hidden">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div><div class="brand" style="margin:0">Team Secret</div><div class="top-title">Admin Dashboard</div></div>
+      <div class="top-actions"><a href="/" class="btn btn-outline" style="text-decoration:none"><span class="store-text">Open </span>Store</a><button id="logoutBtn" class="btn btn-outline">Log out</button></div>
+    </div>
+  </div>
+  <main class="wrap">
+    <section class="stats">
+      <div class="card stat"><div class="label">Products</div><div class="value" id="statProducts">—</div></div>
+      <div class="card stat"><div class="label">Orders</div><div class="value" id="statOrders">—</div></div>
+      <div class="card stat"><div class="label">Pending</div><div class="value" id="statPending">—</div></div>
+      <div class="card stat"><div class="label">Users</div><div class="value" id="statUsers">—</div></div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="orders">Orders</button>
+      <button class="tab" data-tab="products">Products</button>
+      <button class="tab" data-tab="users">Users</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <section id="tabOrders">
+      <div class="section-card card">
+        <div class="section-head"><h2>Orders</h2><div class="order-filter"><label class="small muted" for="orderStatusFilter">Status</label><select id="orderStatusFilter"><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option><option value="delivered">Delivered</option><option value="rejected">Rejected</option></select></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>UTR</th><th>Status</th><th>Update</th></tr></thead><tbody id="orderRows"><tr><td colspan="7">Loading…</td></tr></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tabProducts" class="hidden">
+      <div class="section-card card">
+        <div class="section-head"><h2 id="productFormTitle">Add product</h2></div>
+        <div class="grid2">
+          <div class="field"><label>Title</label><input id="pTitle"></div>
+          <div class="field"><label>Subject</label><input id="pSubject"></div>
+          <div class="field"><label>Type</label><select id="pType"><option value="ebook">E-book</option><option value="handwritten">Handwritten notes</option><option value="guide">Study guide</option><option value="template">Template</option><option value="website">Website template</option></select></div>
+          <div class="field"><label>Price (₹)</label><input id="pPrice" type="number" min="0" step="0.01"></div>
+          <div class="field span2"><label>Description</label><textarea id="pDesc"></textarea></div>
+          <div class="field span2"><label>Download link</label><input id="pFile" placeholder="https://..."></div>
+        </div>
+        <div class="actions"><button id="saveProductBtn" class="btn btn-primary">Save product</button><button id="cancelEditBtn" class="btn btn-outline hidden">Cancel edit</button></div>
+      </div>
+      <div class="section-card card"><div class="section-head"><h2>Products</h2></div><div class="table-wrap"><table><thead><tr><th>Title</th><th>Subject</th><th>Type</th><th>Price</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div></div>
+    </section>
+
+    <section id="tabUsers" class="hidden">
+      <div class="section-card card"><div class="section-head"><h2>Users</h2></div><div class="table-wrap"><table><thead><tr><th>User</th><th>Provider</th><th>Joined</th><th>Last seen</th><th>Orders</th><th>Ordered value</th></tr></thead><tbody id="userRows"></tbody></table></div></div>
+    </section>
+
+    <section id="tabSettings" class="hidden">
+      <div class="section-card card">
+        <div class="section-head"><h2>Payment settings</h2></div>
+        <div class="field"><label>UPI ID</label><input id="upiIdInput" placeholder="yourname@upi"></div><button id="saveUpiBtn" class="btn btn-primary">Save UPI ID</button>
+      </div>
+      <div class="section-card card">
+        <div class="section-head"><h2>Admin password</h2></div>
+        <div class="field"><label>New password</label><input id="newAdminPass" type="password" autocomplete="new-password"></div><button id="saveAdminPassBtn" class="btn btn-primary">Change password</button>
+      </div>
+      <div class="notice">Admin URL is intentionally not linked from the public storefront. The URL itself is not a security boundary; all admin data and mutations remain protected by backend authentication.</div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+const APP_CONFIG = window.TEAM_SECRET_CONFIG || {};
+const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || '').replace(/\/$/, '');
+let adminToken = sessionStorage.getItem('ts-admin-token') || '';
+let products = [];
+let orders = [];
+let users = [];
+let editingProductId = null;
+
+const $ = id => document.getElementById(id);
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function money(v){return '₹'+Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
+function dateText(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});}
+function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400);}
+function statusPill(s){const safe=['pending','paid','delivered','rejected'].includes(s)?s:'pending';return `<span class="status ${safe}">${escapeHtml(safe)}</span>`;}
+function logout(showMessage=true){adminToken='';sessionStorage.removeItem('ts-admin-token');$('dashboardView').classList.add('hidden');$('loginView').classList.remove('hidden');$('adminPassword').value='';if(showMessage)toast('Logged out');}
+async function api(path,{method='GET',body}={}){
+  const headers={'Content-Type':'application/json'};
+  if(adminToken) headers.Authorization=`Bearer ${adminToken}`;
+  const res=await fetch(API_BASE_URL+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
+  let data={};try{data=await res.json();}catch{}
+  if(!res.ok){if(res.status===401&&path!=='/api/admin/login')logout(false);throw new Error(data.error||`Request failed (${res.status})`);}return data;
+}
+
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault(); const password=$('adminPassword').value; if(!password)return;
+  $('loginBtn').disabled=true;$('loginError').textContent='';
+  try{const data=await api('/api/admin/login',{method:'POST',body:{password}});adminToken=data.token;sessionStorage.setItem('ts-admin-token',adminToken);$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');$('adminPassword').value='';await loadAll();}
+  catch(err){$('loginError').textContent=err.message;}finally{$('loginBtn').disabled=false;}
+});
+$('logoutBtn').onclick=()=>logout();
+
+document.querySelectorAll('.tab').forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');
+  ['orders','products','users','settings'].forEach(name=>$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('hidden',name!==btn.dataset.tab));
+});
+$('orderStatusFilter').onchange=()=>renderOrders();
+
+async function loadAll(){
+  try{
+    const [p,o,u,s]=await Promise.all([api('/api/admin/products'),api('/api/admin/orders'),api('/api/admin/users'),api('/api/admin/settings')]);
+    products=p.products||[];orders=o.orders||[];users=u.users||[];$('upiIdInput').value=s.upiId||'';
+    renderProducts();renderOrders();renderUsers();renderStats();
+  }catch(err){toast(err.message);}
+}
+function renderStats(){$('statProducts').textContent=products.length;$('statOrders').textContent=orders.length;$('statPending').textContent=orders.filter(o=>o.status==='pending').length;$('statUsers').textContent=users.length;}
+function renderOrders(){
+  const filter=$('orderStatusFilter').value;const list=filter==='all'?orders:orders.filter(o=>o.status===filter);const rows=$('orderRows');
+  if(!list.length){rows.innerHTML='<tr><td colspan="7" class="muted">No orders found.</td></tr>';return;}
+  rows.innerHTML=list.map(o=>`<tr><td><strong>${escapeHtml(o.id)}</strong><br><span class="small muted">${escapeHtml(dateText(o.createdAt))}</span></td><td>${escapeHtml(o.buyerName||'—')}<br><span class="small muted">${escapeHtml(o.buyerEmail||'—')}</span></td><td>${(o.items||[]).map(i=>`${escapeHtml(i.title)} ×${Number(i.qty)||1}`).join('<br>')}</td><td>${money(o.total)}</td><td>${escapeHtml(o.utr||'—')}</td><td>${statusPill(o.status)}</td><td><div class="actions"><select class="mini" data-status="${escapeHtml(o.id)}">${['pending','paid','delivered','rejected'].map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="mini" data-save-status="${escapeHtml(o.id)}">Save</button></div></td></tr>`).join('');
+  rows.querySelectorAll('[data-save-status]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.saveStatus;const select=rows.querySelector(`[data-status="${CSS.escape(id)}"]`);try{const data=await api(`/api/admin/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:{status:select.value}});const idx=orders.findIndex(x=>x.id===id);if(idx>=0)orders[idx]=data.order;renderOrders();renderStats();toast('Order status updated');}catch(err){toast(err.message);}});
+}
+function renderProducts(){
+  const rows=$('productRows');if(!products.length){rows.innerHTML='<tr><td colspan="5" class="muted">No products.</td></tr>';return;}
+  rows.innerHTML=products.map(p=>`<tr><td><strong>${escapeHtml(p.title)}</strong></td><td>${escapeHtml(p.subject||'—')}</td><td>${escapeHtml(p.type||'—')}</td><td>${money(p.price)}</td><td><div class="actions"><button class="mini" data-edit="${escapeHtml(p.id)}">Edit</button><button class="mini danger" data-delete="${escapeHtml(p.id)}">Delete</button></div></td></tr>`).join('');
+  rows.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editProduct(b.dataset.edit));rows.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteProduct(b.dataset.delete));
+}
+function editProduct(id){const p=products.find(x=>x.id===id);if(!p)return;editingProductId=id;$('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});}
+function resetProductForm(){editingProductId=null;$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pType').value='ebook';$('cancelEditBtn').classList.add('hidden');}
+$('cancelEditBtn').onclick=resetProductForm;
+$('saveProductBtn').onclick=async()=>{const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim()};try{if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});const data=await api('/api/admin/products');products=data.products||[];resetProductForm();renderProducts();renderStats();toast('Product saved');}catch(err){toast(err.message);}};
+async function deleteProduct(id){if(!confirm('Delete this product?'))return;try{await api(`/api/admin/products/${encodeURIComponent(id)}`,{method:'DELETE'});products=products.filter(p=>p.id!==id);renderProducts();renderStats();toast('Product deleted');}catch(err){toast(err.message);}}
+function renderUsers(){const rows=$('userRows');if(!users.length){rows.innerHTML='<tr><td colspan="6" class="muted">No users.</td></tr>';return;}rows.innerHTML=users.map(u=>`<tr><td><strong>${escapeHtml(u.name||'—')}</strong><br><span class="small muted">${escapeHtml(u.email||'—')}</span></td><td>${escapeHtml(u.provider||'guest')}</td><td>${escapeHtml(dateText(u.createdAt))}</td><td>${escapeHtml(dateText(u.lastSeenAt))}</td><td>${Number(u.orderCount)||0}</td><td>${money(u.totalOrdered)}</td></tr>`).join('');}
+$('saveUpiBtn').onclick=async()=>{const upiId=$('upiIdInput').value.trim();if(!upiId){toast('Enter UPI ID');return;}try{await api('/api/admin/settings',{method:'PUT',body:{upiId}});toast('UPI ID saved');}catch(err){toast(err.message);}};
+$('saveAdminPassBtn').onclick=async()=>{const newPassword=$('newAdminPass').value;if(newPassword.length<10){toast('Use at least 10 characters');return;}try{await api('/api/admin/password',{method:'PUT',body:{newPassword}});$('newAdminPass').value='';toast('Password changed');}catch(err){toast(err.message);}};
+
+(async()=>{if(!adminToken)return;try{await api('/api/admin/settings');$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');await loadAll();}catch{logout(false);}})();
+</script>
+</body>
+</html>

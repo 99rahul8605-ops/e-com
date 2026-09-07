@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Team Secret — Study Notes &amp; E-books</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --ink:#1B2333;
+    --ink-soft:#2B3650;
+    --paper:#F8F8F5;
+    --paper-raised:#FFFFFF;
+    --line:#E1E1DB;
+    --muted:#65697A;
+    --amber:#E8A33D;
+    --amber-dark:#C7842A;
+    --mint:#6FA98D;
+    --highlight:#F4D35E;
+    --danger:#C1523E;
+    --radius:10px;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+  }
+  h1,h2,h3,.serif{
+    font-family:'Source Serif 4',serif;
+    margin:0;
+    color:var(--ink);
+  }
+  a{color:inherit;}
+  button{font-family:inherit;cursor:pointer;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
+
+  /* HEADER */
+  header{
+    position:sticky;top:0;z-index:40;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+  }
+  .headbar{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;max-width:1120px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Source Serif 4',serif;font-weight:600;font-size:22px;}
+  .brand-mark{width:30px;height:30px;flex-shrink:0;}
+  .nav-actions{display:flex;align-items:center;gap:14px;}
+  .icon-btn{
+    position:relative;background:none;border:1px solid var(--line);border-radius:8px;
+    padding:8px 12px;font-size:14px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:6px;
+  }
+  .icon-btn:hover{border-color:var(--ink);}
+  .badge{
+    background:var(--amber);color:var(--ink);font-size:11px;font-weight:700;
+    border-radius:99px;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;
+  }
+  .ghost-link{background:none;border:none;color:var(--muted);font-size:14px;text-decoration:underline;text-underline-offset:3px;}
+
+  /* HERO */
+  .hero{padding:72px 24px 60px;position:relative;overflow:hidden;}
+  .hero::before{
+    content:"";position:absolute;top:-120px;right:-80px;width:420px;height:420px;border-radius:50%;
+    background:radial-gradient(circle, rgba(232,163,61,0.16), transparent 70%);pointer-events:none;
+  }
+  .hero-inner{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:1.1fr 0.9fr;gap:48px;align-items:center;position:relative;}
+  .hero h1{font-size:46px;line-height:1.14;font-weight:600;max-width:520px;letter-spacing:-0.01em;}
+  .hero p{color:var(--muted);font-size:17px;max-width:440px;margin-top:16px;}
+  .hero-ctas{margin-top:30px;display:flex;gap:12px;}
+  .btn{
+    border:none;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:600;
+    transition:transform .15s ease, background .15s ease, box-shadow .15s ease, color .15s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--ink);color:var(--paper);box-shadow:0 1px 2px rgba(27,35,51,0.15);}
+  .btn-primary:hover{background:var(--ink-soft);box-shadow:0 4px 14px rgba(27,35,51,0.25);transform:translateY(-1px);}
+  .btn-outline{background:transparent;border:1px solid var(--ink);color:var(--ink);}
+  .btn-outline:hover{background:var(--ink);color:var(--paper);transform:translateY(-1px);}
+  .btn-amber{background:var(--amber);color:var(--ink);box-shadow:0 1px 2px rgba(199,132,42,0.25);}
+  .btn-amber:hover{background:var(--amber-dark);box-shadow:0 4px 14px rgba(199,132,42,0.35);transform:translateY(-1px);}
+  .btn-block{width:100%;}
+  .btn[disabled]{opacity:0.55;cursor:not-allowed;transform:none !important;box-shadow:none !important;}
+
+  /* CATEGORY CHIPS */
+  .chips{display:flex;gap:10px;flex-wrap:wrap;padding:0 24px 32px;max-width:1120px;margin:0 auto;}
+  .chip{
+    border:1px solid var(--line);background:var(--paper-raised);border-radius:99px;
+    padding:8px 16px;font-size:14px;font-weight:500;color:var(--muted);
+    transition:all .15s ease;
+  }
+  .chip:hover{border-color:var(--ink);color:var(--ink);}
+  .chip.active{background:var(--ink);color:var(--paper);border-color:var(--ink);box-shadow:0 2px 8px rgba(27,35,51,0.2);}
+
+  /* PRODUCT GRID */
+  .grid{
+    max-width:1120px;margin:0 auto;padding:0 24px 80px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:24px;
+  }
+  .card{
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;display:flex;flex-direction:column;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(27,35,51,0.12);border-color:transparent;}
+  .cover{
+    height:148px;position:relative;display:flex;align-items:flex-end;padding:14px;
+    background-image:repeating-linear-gradient(180deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 22px),
+      linear-gradient(160deg, rgba(255,255,255,0.08), rgba(0,0,0,0.08));
+  }
+  .cover .tag{
+    background:rgba(255,255,255,0.92);color:var(--ink);font-size:11px;font-weight:700;
+    padding:5px 10px;border-radius:6px;letter-spacing:0.02em;box-shadow:0 2px 6px rgba(0,0,0,0.12);
+  }
+  .card-body{padding:18px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card-body h3{font-size:17px;font-weight:600;letter-spacing:-0.005em;}
+  .card-body .subject{color:var(--muted);font-size:13px;}
+  .card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:14px;}
+  .price{font-family:'Source Serif 4',serif;font-weight:600;font-size:19px;}
+  .add-btn{
+    background:var(--ink);color:var(--paper);border:none;border-radius:7px;padding:8px 15px;font-size:13px;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px;transition:background .15s ease, transform .15s ease;
+  }
+  .add-btn:hover{background:var(--ink-soft);transform:translateY(-1px);}
+  .add-btn:active{transform:translateY(0);}
+  .empty-note{color:var(--muted);text-align:center;padding:60px 20px;grid-column:1/-1;}
+
+  /* CART DRAWER */
+  .overlay{
+    position:fixed;inset:0;background:rgba(27,35,51,0.35);z-index:60;
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  .overlay.open{opacity:1;pointer-events:auto;}
+  .drawer{
+    position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);
+    background:var(--paper);z-index:70;transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column;
+    border-left:1px solid var(--line);box-shadow:-8px 0 32px rgba(27,35,51,0.1);
+  }
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .drawer-body{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:14px;}
+  .cart-item{display:flex;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px;}
+  .cart-item .swatch{width:48px;height:60px;border-radius:6px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.15);}
+  .cart-item-info{flex:1;}
+  .cart-item-info h4{font-size:14px;font-weight:600;margin-bottom:2px;}
+  .qty-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+  .qty-btn{width:24px;height:24px;border:1px solid var(--line);background:none;border-radius:5px;font-size:13px;transition:border-color .15s ease;}
+  .qty-btn:hover{border-color:var(--ink);}
+  .remove-link{color:var(--danger);font-size:12px;background:none;border:none;text-decoration:underline;padding:0;}
+  .drawer-foot{padding:18px 22px;border-top:1px solid var(--line);}
+  .subtotal-row{display:flex;justify-content:space-between;font-size:15px;margin-bottom:14px;font-weight:600;}
+  .close-x{background:none;border:none;font-size:20px;color:var(--muted);line-height:1;width:30px;height:30px;border-radius:6px;transition:background .15s ease;}
+  .close-x:hover{background:var(--line);}
+
+  /* MODAL */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(27,35,51,0.4);z-index:80;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+    opacity:0;pointer-events:none;transition:opacity .18s ease;
+  }
+  .modal-overlay.open{opacity:1;pointer-events:auto;}
+  .modal{
+    background:var(--paper-raised);border-radius:14px;max-width:420px;width:100%;
+    padding:28px;position:relative;max-height:88vh;overflow-y:auto;
+    box-shadow:0 24px 60px rgba(27,35,51,0.25);
+    transform:translateY(10px) scale(.98);transition:transform .2s cubic-bezier(.32,.72,0,1);
+  }
+  .modal-overlay.open .modal{transform:translateY(0) scale(1);}
+  .modal h2{font-size:22px;margin-bottom:6px;}
+  .modal .sub{color:var(--muted);font-size:14px;margin-bottom:20px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:7px;font-size:14px;font-family:inherit;background:var(--paper);
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,163,61,0.2);
+  }
+  .field textarea{resize:vertical;min-height:70px;}
+  .modal-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;color:var(--muted);width:30px;height:30px;border-radius:6px;transition:background .15s ease;}
+  .modal-close:hover{background:var(--line);}
+  .divider-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:16px 0;}
+  .divider-or::before,.divider-or::after{content:"";flex:1;height:1px;background:var(--line);}
+  .gsi-slot{display:flex;justify-content:center;min-height:40px;}
+  .setup-note{background:#FBF3E2;border:1px solid var(--highlight);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink-soft);margin-top:10px;}
+  .success-box{background:#EEF6F1;border:1px solid var(--mint);border-radius:8px;padding:14px;font-size:14px;margin-top:6px;}
+  .success-box a{color:var(--ink);font-weight:600;}
+
+  .toast{
+    position:fixed;bottom:28px;left:50%;transform:translate(-50%, 12px);
+    background:var(--ink);color:var(--paper);padding:12px 22px;border-radius:8px;font-size:14px;
+    z-index:100;opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;
+    box-shadow:0 10px 30px rgba(27,35,51,0.3);
+  }
+  .toast.show{opacity:1;transform:translate(-50%, 0);}
+  footer{border-top:1px solid var(--line);padding:28px 24px;text-align:center;color:var(--muted);font-size:13px;}
+
+  .status-pill{display:inline-flex;align-items:center;padding:4px 9px;border-radius:99px;font-size:12px;font-weight:700;text-transform:capitalize;}
+  .status-pending{background:#FBF3E2;color:#8A5A16;}
+  .status-paid{background:#EEF6F1;color:#2F6D4C;}
+  .status-delivered{background:#EAF1FA;color:#315F91;}
+  .status-rejected{background:#FBEDEA;color:#9E3B2E;}
+  .order-list{display:flex;flex-direction:column;gap:12px;}
+  .order-card{border:1px solid var(--line);border-radius:10px;padding:15px;background:var(--paper);}
+  .order-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px;}
+  .order-meta{font-size:12px;color:var(--muted);}
+  .download-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+  .download-list a{font-size:13px;font-weight:600;color:var(--ink);}
+  .account-info{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:14px;}
+  .table-wrap{overflow-x:auto;width:100%;}
+  .status-select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper-raised);font:inherit;font-size:12px;}
+  .inline-actions{display:flex;gap:8px;align-items:center;min-width:180px;}
+  .mini-btn{border:1px solid var(--line);background:var(--paper-raised);border-radius:6px;padding:6px 9px;font-size:12px;font-weight:600;}
+  .muted-small{font-size:12px;color:var(--muted);}
+  .hidden{display:none !important;}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:0.001ms !important; animation-duration:0.001ms !important;}
+  }
+  @media(max-width:760px){
+    .hero-inner{grid-template-columns:1fr;}
+    .hero h1{font-size:32px;}
+    .form-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="headbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none">
+        <rect x="4" y="6" width="18" height="22" rx="2" fill="var(--amber)"/>
+        <rect x="8" y="3" width="18" height="22" rx="2" fill="var(--ink)"/>
+        <line x1="12" y1="9" x2="22" y2="9" stroke="var(--paper)" stroke-width="1.4"/>
+        <line x1="12" y1="13" x2="22" y2="13" stroke="var(--paper)" stroke-width="1.4"/>
+        <line x1="12" y1="17" x2="18" y2="17" stroke="var(--paper)" stroke-width="1.4"/>
+      </svg>
+      Team Secret
+    </div>
+    <div class="nav-actions">
+      <button class="icon-btn" id="accountBtn">Account</button>
+      <button class="icon-btn hidden" id="ordersBtn">My orders</button>
+      <button class="icon-btn" id="cartBtn">Cart <span class="badge" id="cartBadge">0</span></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <h1>Notes made by toppers, ready in one click.</h1>
+      <p>Handwritten notes, exam guides and e-books for every subject — buy once, download instantly, keep forever.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-primary" onclick="document.getElementById('shop').scrollIntoView({behavior:'smooth'})">Browse notes</button>
+      </div>
+    </div>
+    <svg viewBox="0 0 320 260" width="100%" height="auto">
+      <g transform="rotate(-6 160 130)">
+        <rect x="70" y="40" width="150" height="190" rx="8" fill="var(--mint)" opacity="0.35"/>
+      </g>
+      <g transform="rotate(4 160 130)">
+        <rect x="90" y="20" width="150" height="190" rx="8" fill="var(--highlight)" opacity="0.55"/>
+      </g>
+      <rect x="80" y="35" width="150" height="195" rx="8" fill="var(--paper-raised)" stroke="var(--line)"/>
+      <rect x="80" y="35" width="10" height="195" rx="4" fill="var(--amber)"/>
+      <line x1="105" y1="65" x2="205" y2="65" stroke="var(--line)" stroke-width="2"/>
+      <line x1="105" y1="82" x2="205" y2="82" stroke="var(--line)" stroke-width="2"/>
+      <line x1="105" y1="99" x2="185" y2="99" stroke="var(--line)" stroke-width="2"/>
+      <line x1="105" y1="126" x2="205" y2="126" stroke="var(--line)" stroke-width="2"/>
+      <line x1="105" y1="143" x2="205" y2="143" stroke="var(--line)" stroke-width="2"/>
+      <line x1="105" y1="160" x2="170" y2="160" stroke="var(--line)" stroke-width="2"/>
+      <circle cx="205" cy="185" r="16" fill="var(--ink)"/>
+      <text x="205" y="190" font-size="13" fill="var(--paper)" text-anchor="middle" font-family="Inter">₹</text>
+    </svg>
+  </div>
+</section>
+
+<div class="chips" id="chips"></div>
+<div class="grid" id="productGrid"><p class="empty-note">Loading catalogue…</p></div>
+
+<footer id="shop">Team Secret — digital notes &amp; e-books. Orders and user data are stored through the Team Secret API.</footer>
+
+<!-- CART DRAWER -->
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="cartDrawer">
+  <div class="drawer-head">
+    <h2 style="font-size:19px;">Your cart</h2>
+    <button class="close-x" id="closeCart">✕</button>
+  </div>
+  <div class="drawer-body" id="cartBody"></div>
+  <div class="drawer-foot">
+    <div class="subtotal-row"><span>Subtotal</span><span id="cartSubtotal">₹0</span></div>
+    <button class="btn btn-amber btn-block" id="checkoutBtn">Checkout</button>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <h2>Welcome back</h2>
+    <div class="sub">Sign in to track your orders and downloads.</div>
+    <div class="gsi-slot" id="gsiSlot"></div>
+    <div class="setup-note">Google sign-in needs a real Client ID from your Google Cloud Console and your live domain configured for Google Sign-In. Guest login remains available until Google sign-in is configured.</div>
+    <div class="divider-or">or continue as guest</div>
+    <div class="field"><label>Name</label><input id="guestName" placeholder="Your name"></div>
+    <div class="field"><label>Email</label><input id="guestEmail" placeholder="you@email.com"></div>
+    <button class="btn btn-primary btn-block" id="guestLoginBtn">Continue</button>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('accountModal')">✕</button>
+    <h2>Your account</h2>
+    <div class="sub">Your order history is tied to this browser session.</div>
+    <div class="account-info" id="accountInfo"></div>
+    <button class="btn btn-primary btn-block" id="accountOrdersBtn">View my orders</button>
+    <button class="btn btn-outline btn-block" style="margin-top:10px;" id="logoutUserBtn">Log out</button>
+  </div>
+</div>
+
+<!-- MY ORDERS MODAL -->
+<div class="modal-overlay" id="ordersModal">
+  <div class="modal" style="max-width:620px;">
+    <button class="modal-close" onclick="closeModal('ordersModal')">✕</button>
+    <h2>My orders</h2>
+    <div class="sub">Track payment verification and download approved purchases.</div>
+    <div id="myOrdersList" class="order-list"><div class="muted-small">Loading…</div></div>
+  </div>
+</div>
+
+<!-- CHECKOUT MODAL -->
+<div class="modal-overlay" id="checkoutModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('checkoutModal')">✕</button>
+    <h2>Checkout</h2>
+    <div class="sub" id="checkoutSummary"></div>
+    <div id="checkoutForm">
+      <div class="field"><label>Name</label><input id="coName"></div>
+      <div class="field"><label>Email (for download link)</label><input id="coEmail"></div>
+      <div id="upiPayBox" class="success-box" style="background:#F3F6FB;border-color:#C9D6E8;">
+        <div style="font-weight:600;margin-bottom:6px;">Pay ₹<span id="payAmount">0</span> via UPI</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Scan or tap to pay, then enter the transaction/UTR number below.</div>
+        <a id="upiPayLink" class="btn btn-outline btn-block" href="#" style="text-align:center;display:block;">Pay with UPI app</a>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:8px;">UPI ID: <strong id="upiIdDisplay">—</strong></div>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>UPI transaction / UTR number</label><input id="coUtr" placeholder="e.g. 234567891234"></div>
+      <button class="btn btn-amber btn-block" id="payBtn">I've paid — submit order</button>
+      <div class="setup-note">Payments are verified manually. After approval, download links appear automatically in My Orders.</div>
+    </div>
+    <div id="checkoutSuccess" class="hidden"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const APP_CONFIG = window.TEAM_SECRET_CONFIG || {};
+const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || '').replace(/\/$/, '');
+const GOOGLE_CLIENT_ID = APP_CONFIG.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
+
+const CATEGORY_LABELS = {ebook:'E-book', handwritten:'Handwritten notes', guide:'Study guide', template:'Template', website:'Website template'};
+const COVER_COLORS = ['#1B2333','#6FA98D','#C7842A','#5B6472','#8B6BAE'];
+const DEFAULT_PRODUCTS = [
+  {id:'p1', title:'Class 12 Physics — Full Notes', subject:'Physics', type:'handwritten', price:149, description:'Chapter-wise handwritten notes covering the entire CBSE Class 12 Physics syllabus.'},
+  {id:'p2', title:'Organic Chemistry Crash Guide', subject:'Chemistry', type:'guide', price:199, description:'A compact revision guide for organic chemistry reactions and mechanisms.'},
+  {id:'p3', title:'Data Structures E-book', subject:'Computer Science', type:'ebook', price:249, description:'Beginner-friendly e-book on arrays, trees, graphs and common interview problems.'},
+  {id:'p4', title:'UPSC Essay Answer Templates', subject:'UPSC', type:'template', price:99, description:'Ready-to-adapt structures for scoring well in the essay paper.'}
+];
+
+let products = [];
+let cart = [];
+let currentUser = null;
+let userToken = localStorage.getItem('ts-user-token') || '';
+let activeCategory = 'all';
+let upiId = '';
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function money(n){ return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function safeUrl(url){
+  try{
+    const u = new URL(String(url || ''), window.location.href);
+    return ['http:','https:'].includes(u.protocol) ? u.href : '#';
+  }catch{ return '#'; }
+}
+function dateText(value){
+  if(!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'});
+}
+function statusPill(status){
+  const s = ['pending','paid','delivered','rejected'].includes(status) ? status : 'pending';
+  return `<span class="status-pill status-${s}">${escapeHtml(s)}</span>`;
+}
+function backendConfigured(){ return !API_BASE_URL.includes('YOUR-RENDER-BACKEND'); }
+
+async function api(path, {method='GET', body, auth='none'}={}){
+  if(!backendConfigured()) throw new Error('Backend URL is not configured in config.js');
+  const headers = {'Content-Type':'application/json'};
+  if(auth==='user' && userToken) headers.Authorization = `Bearer ${userToken}`;
+  const res = await fetch(API_BASE_URL + path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
+  let data = {};
+  try{ data = await res.json(); }catch{}
+  if(!res.ok){
+    if(res.status===401 && auth==='user') logoutUser(false);
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  return data;
+}
+
+async function loadProducts(){
+  try{
+    const data = await api('/api/products');
+    products = data.products || [];
+  }catch(err){
+    products = DEFAULT_PRODUCTS;
+    if(backendConfigured()) toast('Could not reach backend. Showing sample catalogue.');
+  }
+  renderChips(); renderGrid();
+}
+function loadCart(){
+  try{ cart = JSON.parse(localStorage.getItem('ts-cart') || '[]'); }catch{ cart=[]; }
+  renderCart();
+}
+function saveCart(){ localStorage.setItem('ts-cart', JSON.stringify(cart)); renderCart(); }
+function loadUser(){
+  try{ currentUser = JSON.parse(localStorage.getItem('ts-user') || 'null'); }catch{ currentUser=null; }
+  if(!userToken) currentUser=null;
+  updateAccountBtn();
+}
+function saveUserSession(user, token){
+  currentUser=user; userToken=token;
+  localStorage.setItem('ts-user', JSON.stringify(user));
+  localStorage.setItem('ts-user-token', token);
+  updateAccountBtn();
+}
+function logoutUser(showToast=true){
+  currentUser=null; userToken='';
+  localStorage.removeItem('ts-user'); localStorage.removeItem('ts-user-token');
+  updateAccountBtn(); closeModal('accountModal'); closeModal('ordersModal');
+  if(showToast) toast('Logged out');
+}
+function updateAccountBtn(){
+  document.getElementById('accountBtn').textContent = currentUser ? currentUser.name.split(' ')[0] : 'Account';
+  document.getElementById('ordersBtn').classList.toggle('hidden', !currentUser);
+}
+
+function renderChips(){
+  const cats = ['all', ...new Set(products.map(p=>p.type))];
+  const wrap = document.getElementById('chips');
+  wrap.innerHTML = cats.map(c=>`<button class="chip ${c===activeCategory?'active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c==='all'?'All':(CATEGORY_LABELS[c]||c))}</button>`).join('');
+  wrap.querySelectorAll('.chip').forEach(btn=>btn.onclick=()=>{activeCategory=btn.dataset.cat;renderChips();renderGrid();});
+}
+function renderGrid(){
+  const grid=document.getElementById('productGrid');
+  const list=activeCategory==='all'?products:products.filter(p=>p.type===activeCategory);
+  if(!list.length){grid.innerHTML='<p class="empty-note">No products here yet.</p>';return;}
+  grid.innerHTML=list.map((p,i)=>`
+    <div class="card">
+      <div class="cover" style="background:${COVER_COLORS[i % COVER_COLORS.length]}"><span class="tag">${escapeHtml(CATEGORY_LABELS[p.type]||p.type)}</span></div>
+      <div class="card-body">
+        <h3>${escapeHtml(p.title)}</h3><div class="subject">${escapeHtml(p.subject||'')}</div>
+        <p style="font-size:13px;color:var(--muted);margin:4px 0 0;">${escapeHtml((p.description||'').slice(0,80))}${(p.description||'').length>80?'…':''}</p>
+        <div class="card-foot"><span class="price">${money(p.price)}</span><button class="add-btn" data-id="${escapeHtml(p.id)}"><span aria-hidden="true">+</span> Add to cart</button></div>
+      </div>
+    </div>`).join('');
+  grid.querySelectorAll('.add-btn').forEach(btn=>btn.onclick=()=>addToCart(btn.dataset.id));
+}
+function addToCart(id){
+  const existing=cart.find(c=>c.productId===id);
+  if(existing) existing.qty+=1; else cart.push({productId:id,qty:1});
+  saveCart(); toast('Added to cart');
+}
+function changeQty(id,delta){
+  const item=cart.find(c=>c.productId===id); if(!item)return;
+  item.qty+=delta; if(item.qty<=0) cart=cart.filter(c=>c.productId!==id); saveCart();
+}
+function removeFromCart(id){cart=cart.filter(c=>c.productId!==id);saveCart();}
+function cartTotal(){return cart.reduce((sum,c)=>{const p=products.find(p=>p.id===c.productId);return sum+(p?p.price*c.qty:0);},0);}
+function renderCart(){
+  const body=document.getElementById('cartBody');
+  const count=cart.reduce((n,c)=>n+c.qty,0); document.getElementById('cartBadge').textContent=count;
+  if(!cart.length){body.innerHTML='<p style="color:var(--muted);">Your cart is empty.</p>';}
+  else{
+    body.innerHTML=cart.map(c=>{const p=products.find(p=>p.id===c.productId);if(!p)return'';return `
+      <div class="cart-item"><div class="swatch" style="background:${COVER_COLORS[Math.max(0,products.indexOf(p))%COVER_COLORS.length]}"></div>
+      <div class="cart-item-info"><h4>${escapeHtml(p.title)}</h4><div style="font-size:13px;color:var(--muted);">${money(p.price)}</div>
+      <div class="qty-row"><button class="qty-btn" data-a="dec" data-id="${escapeHtml(p.id)}">−</button><span>${c.qty}</span><button class="qty-btn" data-a="inc" data-id="${escapeHtml(p.id)}">+</button><button class="remove-link" data-id="${escapeHtml(p.id)}" style="margin-left:10px;">Remove</button></div></div></div>`;}).join('');
+    body.querySelectorAll('.qty-btn').forEach(b=>b.onclick=()=>changeQty(b.dataset.id,b.dataset.a==='inc'?1:-1));
+    body.querySelectorAll('.remove-link').forEach(b=>b.onclick=()=>removeFromCart(b.dataset.id));
+  }
+  document.getElementById('cartSubtotal').textContent=money(cartTotal());
+}
+
+// Cart drawer
+document.getElementById('cartBtn').onclick=()=>{document.getElementById('cartDrawer').classList.add('open');document.getElementById('overlay').classList.add('open');};
+function closeDrawer(){document.getElementById('cartDrawer').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+document.getElementById('closeCart').onclick=closeDrawer; document.getElementById('overlay').onclick=closeDrawer;
+
+// User account / login
+document.getElementById('accountBtn').onclick=()=>{
+  if(!currentUser){openModal('loginModal');renderGoogleButton();return;}
+  document.getElementById('accountInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br><span class="muted-small">${escapeHtml(currentUser.email)} · ${escapeHtml(currentUser.provider||'guest')}</span>`;
+  openModal('accountModal');
+};
+document.getElementById('ordersBtn').onclick=openMyOrders;
+document.getElementById('accountOrdersBtn').onclick=()=>{closeModal('accountModal');openMyOrders();};
+document.getElementById('logoutUserBtn').onclick=()=>logoutUser(true);
+
+document.getElementById('guestLoginBtn').onclick=async()=>{
+  const name=document.getElementById('guestName').value.trim();
+  const email=document.getElementById('guestEmail').value.trim();
+  if(!name||!email){toast('Enter name and email');return;}
+  try{
+    const data=await api('/api/users/guest',{method:'POST',body:{name,email,userToken}});
+    saveUserSession(data.user,data.userToken); closeModal('loginModal'); toast('Signed in as '+data.user.name);
+  }catch(err){toast(err.message);}
+};
+function renderGoogleButton(){
+  const slot=document.getElementById('gsiSlot'); slot.innerHTML='';
+  try{
+    if(window.google&&google.accounts&&GOOGLE_CLIENT_ID&&!GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE_CLIENT_ID')){
+      google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleCredential});
+      google.accounts.id.renderButton(slot,{theme:'outline',size:'large',width:320});
+    }else slot.innerHTML='<button class="btn btn-outline btn-block" disabled>Sign in with Google (needs setup)</button>';
+  }catch{slot.innerHTML='<button class="btn btn-outline btn-block" disabled>Sign in with Google (needs setup)</button>';}
+}
+async function handleGoogleCredential(resp){
+  try{
+    const data=await api('/api/auth/google',{method:'POST',body:{credential:resp.credential}});
+    saveUserSession(data.user,data.userToken); closeModal('loginModal'); toast('Signed in as '+data.user.name);
+  }catch(err){toast(err.message);}
+}
+async function openMyOrders(){
+  if(!currentUser||!userToken){openModal('loginModal');return;}
+  openModal('ordersModal');
+  const list=document.getElementById('myOrdersList'); list.innerHTML='<div class="muted-small">Loading…</div>';
+  try{
+    const data=await api('/api/orders/me',{auth:'user'});
+    renderMyOrders(data.orders||[]);
+  }catch(err){list.innerHTML=`<div class="setup-note">${escapeHtml(err.message)}</div>`;}
+}
+function renderMyOrders(orders){
+  const list=document.getElementById('myOrdersList');
+  if(!orders.length){list.innerHTML='<div class="muted-small">You have no orders yet.</div>';return;}
+  list.innerHTML=orders.map(o=>{
+    const downloads=(['paid','delivered'].includes(o.status)?(o.items||[]).filter(it=>it.file):[]);
+    return `<div class="order-card">
+      <div class="order-card-head"><div><strong>${escapeHtml(o.id)}</strong><div class="order-meta">${escapeHtml(dateText(o.createdAt))}</div></div>${statusPill(o.status)}</div>
+      <div style="font-size:13px;">${(o.items||[]).map(it=>`${escapeHtml(it.title)} ×${Number(it.qty)||1}`).join('<br>')}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-weight:600;"><span>Total</span><span>${money(o.total)}</span></div>
+      <div class="order-meta" style="margin-top:5px;">UTR: ${escapeHtml(o.utr||'—')}</div>
+      ${downloads.length?`<div class="download-list"><strong style="font-size:13px;">Downloads</strong>${downloads.map(it=>`<a href="${escapeHtml(safeUrl(it.file))}" target="_blank" rel="noopener">Download ${escapeHtml(it.title)}</a>`).join('')}</div>`:''}
+      ${o.status==='pending'?'<div class="muted-small" style="margin-top:9px;">Payment verification pending.</div>':''}
+      ${o.status==='rejected'?'<div class="muted-small" style="margin-top:9px;color:var(--danger);">Payment/order was rejected. Contact support if this looks wrong.</div>':''}
+    </div>`;
+  }).join('');
+}
+
+// Checkout
+document.getElementById('checkoutBtn').onclick=async()=>{
+  if(!cart.length){toast('Your cart is empty');return;}
+  if(!currentUser||!userToken){closeDrawer();openModal('loginModal');renderGoogleButton();toast('Sign in before checkout');return;}
+  if(!backendConfigured()){toast('Backend URL is not configured');return;}
+  closeDrawer();
+  document.getElementById('checkoutForm').classList.remove('hidden'); document.getElementById('checkoutSuccess').classList.add('hidden');
+  document.getElementById('checkoutSuccess').innerHTML=''; document.getElementById('checkoutSummary').textContent=cart.reduce((n,c)=>n+c.qty,0)+' item(s) in cart';
+  const amount=cartTotal(); document.getElementById('payAmount').textContent=amount; document.getElementById('coUtr').value='';
+  document.getElementById('coName').value=currentUser.name; document.getElementById('coEmail').value=currentUser.email;
+  document.getElementById('coName').readOnly=true; document.getElementById('coEmail').readOnly=true;
+  try{const data=await api('/api/settings/public');upiId=data.upiId||'';}catch{upiId='';}
+  const upiBox=document.getElementById('upiPayBox');
+  if(upiId){
+    document.getElementById('upiIdDisplay').textContent=upiId;
+    document.getElementById('upiPayLink').href=`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('Team Secret')}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order payment')}`;
+    upiBox.classList.remove('hidden');
+  }else upiBox.classList.add('hidden');
+  openModal('checkoutModal');
+};
+document.getElementById('payBtn').onclick=async()=>{
+  const utr=document.getElementById('coUtr').value.trim(); if(!utr){toast('Enter your UPI transaction / UTR number');return;}
+  const btn=document.getElementById('payBtn'); btn.disabled=true;
+  try{
+    const data=await api('/api/orders',{method:'POST',auth:'user',body:{utr,items:cart.map(c=>({productId:c.productId,qty:c.qty}))}});
+    cart=[]; saveCart(); document.getElementById('checkoutForm').classList.add('hidden');
+    const box=document.getElementById('checkoutSuccess'); box.classList.remove('hidden');
+    box.innerHTML=`<div class="success-box"><strong>Order received: ${escapeHtml(data.order.id)}</strong><br>Payment verification is pending. Check <strong>My orders</strong> for live status and download links after approval.</div><button class="btn btn-primary btn-block" style="margin-top:14px;" id="successOrdersBtn">View my orders</button><button class="btn btn-outline btn-block" style="margin-top:10px;" onclick="closeModal('checkoutModal')">Done</button>`;
+    document.getElementById('successOrdersBtn').onclick=()=>{closeModal('checkoutModal');openMyOrders();};
+    toast('Order submitted for verification');
+  }catch(err){toast(err.message);}finally{btn.disabled=false;}
+};
+
+
+(async function init(){
+  loadCart(); loadUser(); await loadProducts();
+  if(!backendConfigured()){
+    const note = document.querySelector('.setup-note');
+    if(note) note.innerHTML='Backend URL placeholder is still present. For the VPS same-domain setup, set <strong>API_BASE_URL</strong> to an empty string in <code>config.js</code>.';
+  }
+})();
+</script>
+</body>
+</html>
