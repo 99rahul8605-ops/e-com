@@ -469,10 +469,10 @@
     <div class="admin-form">
       <h3 style="font-size:16px;margin-bottom:10px;">Setup notes</h3>
       <p style="font-size:14px;color:var(--muted);line-height:1.7;">
-        1. <strong>Backend:</strong> deploy the <code>backend</code> folder to Render/Railway and connect MongoDB Atlas through environment variables.<br><br>
-        2. <strong>Frontend:</strong> set the backend URL and Google Client ID in <code>config.js</code>, then publish the root files on GitHub Pages.<br><br>
+        1. <strong>Server:</strong> run the <code>backend</code> folder on your VPS. The same Express app serves this frontend and all <code>/api/*</code> routes.<br><br>
+        2. <strong>Cloudflare Tunnel:</strong> point your public hostname to <code>http://localhost:3000</code>. Keep <code>API_BASE_URL</code> empty in <code>config.js</code> for same-domain API calls.<br><br>
         3. <strong>Orders:</strong> users submit UTR numbers. Update status here to Pending, Paid, Delivered or Rejected. Paid/Delivered orders automatically reveal download links inside the user's My Orders page.<br><br>
-        4. <strong>Security:</strong> MongoDB URI, admin password and JWT secret stay only in backend environment variables. Never put them in GitHub Pages files.
+        4. <strong>Security:</strong> MongoDB URI, admin password and JWT secret stay only in <code>backend/.env</code>. Never put them in frontend files or commit them to GitHub.
       </p>
     </div>
   </div>
@@ -530,7 +530,7 @@ function statusPill(status){
   const s = ['pending','paid','delivered','rejected'].includes(status) ? status : 'pending';
   return `<span class="status-pill status-${s}">${escapeHtml(s)}</span>`;
 }
-function backendConfigured(){ return API_BASE_URL && !API_BASE_URL.includes('YOUR-RENDER-BACKEND'); }
+function backendConfigured(){ return !API_BASE_URL.includes('YOUR-RENDER-BACKEND'); }
 
 async function api(path, {method='GET', body, auth='none'}={}){
   if(!backendConfigured()) throw new Error('Backend URL is not configured in config.js');
@@ -824,7 +824,7 @@ document.getElementById('sellCta').onclick=()=>{if(isAdmin)showAdminShell();else
 (async function init(){
   loadCart();loadUser();await loadProducts();
   if(!backendConfigured()){
-    document.querySelector('.setup-note').innerHTML='Backend is not configured yet. Set <strong>API_BASE_URL</strong> in <code>config.js</code> after deploying the backend.';
+    document.querySelector('.setup-note').innerHTML='Backend URL placeholder is still present. For the VPS same-domain setup, set <strong>API_BASE_URL</strong> to an empty string in <code>config.js</code>.';
   }
   if(window.location.pathname.replace(/\/$/,'').endsWith('/admin')){if(isAdmin)showAdminShell();else openModal('adminLoginModal');}
 })();

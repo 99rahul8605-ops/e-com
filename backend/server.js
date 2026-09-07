@@ -7,10 +7,13 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const path = require('path');
 const { MongoClient } = require('mongodb');
 const { OAuth2Client } = require('google-auth-library');
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '127.0.0.1';
+const FRONTEND_DIR = path.resolve(__dirname, '..');
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || 'team_secret_store';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -38,7 +41,11 @@ const DEFAULT_PRODUCTS = [
 ];
 
 app.set('trust proxy', 1);
-app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+}));
 app.use(express.json({ limit: '200kb' }));
 app.use(cors({
   origin(origin, callback) {
@@ -378,6 +385,27 @@ app.put('/api/admin/password', requireAdmin, authLimiter, async (req, res, next)
   } catch (err) { next(err); }
 });
 
+// Serve the frontend from the same Node/Express app.
+// Keep this AFTER all /api routes so API requests are handled first.
+app.use(express.static(FRONTEND_DIR, {
+  index: 'index.html',
+  dotfiles: 'ignore',
+  maxAge: '1h'
+}));
+
+// Frontend fallback for direct browser navigation. Never swallow unknown API routes.
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+    return res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+  }
+  next();
+});
+
+// Explicit JSON 404 for unknown API endpoints.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   if (String(err?.message || '').includes('CORS')) return res.status(403).json({ error:'Origin not allowed' });
@@ -403,7 +431,7 @@ async function start() {
     await db.collection('products').insertMany(DEFAULT_PRODUCTS.map(p => ({ ...p, active:true, createdAt:now, updatedAt:now })));
   }
 
-  app.listen(PORT, '0.0.0.0', () => console.log(`Team Secret API listening on port ${PORT}`));
+  app.listen(PORT, HOST, () => console.log(`Team Secret Store listening on http://${HOST}:${PORT}`));
 }
 
 start().catch(err => {

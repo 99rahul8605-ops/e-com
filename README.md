@@ -159,3 +159,54 @@ The foundation is ready for:
 - downloadable invoice
 - user support/contact tickets
 - admin pagination and search
+
+
+## VPS + Cloudflare Tunnel (same-domain setup)
+
+This build can serve the frontend and backend from the same Express process. Nginx is not required.
+
+1. On the VPS:
+   ```bash
+   cd /root/e-com/backend
+   npm install
+   nano .env
+   npm start
+   ```
+
+2. Recommended `.env`:
+   ```env
+   PORT=3000
+   HOST=127.0.0.1
+   MONGODB_URI=YOUR_MONGODB_URI
+   MONGODB_DB=team_secret_store
+   ADMIN_PASSWORD=YOUR_STRONG_ADMIN_PASSWORD
+   JWT_SECRET=YOUR_32_PLUS_CHARACTER_SECRET
+   GOOGLE_CLIENT_ID=
+   ```
+
+3. `config.js` should keep:
+   ```js
+   API_BASE_URL: ""
+   ```
+
+4. Cloudflare Tunnel public hostname/service:
+   ```text
+   your-domain.example -> http://localhost:3000
+   ```
+
+5. Test locally before the tunnel:
+   ```bash
+   curl http://127.0.0.1:3000/api/health
+   curl -I http://127.0.0.1:3000/
+   ```
+
+6. For production, run with PM2:
+   ```bash
+   sudo npm install -g pm2
+   cd /root/e-com/backend
+   pm2 start server.js --name e-com
+   pm2 save
+   pm2 startup
+   ```
+
+`HOST=127.0.0.1` keeps the Node server private to the VPS while Cloudflare Tunnel exposes it securely.
