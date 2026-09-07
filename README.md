@@ -235,3 +235,7 @@ curl -s http://127.0.0.1:3000/api/health
 ```
 
 Admin settings must contain a valid UPI ID before checkout can generate a QR.
+
+
+## Mobile product image picker
+The admin product image input uses `accept="image/*"` and does not use the `capture` attribute, so supported mobile browsers can offer Gallery/Photos/Files instead of forcing the camera. The server still validates uploaded bytes and accepts genuine JPG, PNG, or WebP files up to the configured limit.
