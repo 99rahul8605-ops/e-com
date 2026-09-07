@@ -18,6 +18,8 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const FRONTEND_DIR = path.resolve(__dirname, '..', 'public');
 const PRODUCT_UPLOAD_DIR = path.join(FRONTEND_DIR, 'uploads', 'products');
+const PRIVATE_PRODUCT_DIR = path.resolve(process.env.PRIVATE_PRODUCT_DIR || path.join(__dirname, '..', 'private_storage', 'products'));
+const PRIVATE_PRODUCT_TEMP_DIR = path.join(PRIVATE_PRODUCT_DIR, '.tmp');
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || 'team_secret_store';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -30,6 +32,8 @@ const AUTH_RATE_LIMIT_PER_15_MIN = clampInt(process.env.AUTH_RATE_LIMIT_PER_15_M
 const ORDER_RATE_LIMIT_PER_10_MIN = clampInt(process.env.ORDER_RATE_LIMIT_PER_10_MIN, 10, 2, 200);
 const ADMIN_READ_PAGE_SIZE = clampInt(process.env.ADMIN_READ_PAGE_SIZE, 50, 10, 100);
 const PRODUCT_IMAGE_MAX_MB = clampInt(process.env.PRODUCT_IMAGE_MAX_MB, 2, 1, 5);
+const PRODUCT_FILE_MAX_MB = clampInt(process.env.PRODUCT_FILE_MAX_MB, 100, 1, 1024);
+const DOWNLOAD_RATE_LIMIT_PER_HOUR = clampInt(process.env.DOWNLOAD_RATE_LIMIT_PER_HOUR, 60, 5, 1000);
 const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || '')
   .split(',')
   .map(v => v.trim().replace(/\/$/, ''))
@@ -39,6 +43,9 @@ if (!MONGODB_URI) throw new Error('MONGODB_URI is required');
 if (!ADMIN_PASSWORD) throw new Error('ADMIN_PASSWORD is required');
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('JWT_SECRET must be at least 32 characters');
 if (FRONTEND_ORIGINS.length === 0) throw new Error('FRONTEND_ORIGINS is required and must contain your exact storefront origin');
+if (PRIVATE_PRODUCT_DIR === FRONTEND_DIR || PRIVATE_PRODUCT_DIR.startsWith(FRONTEND_DIR + path.sep)) {
+  throw new Error('PRIVATE_PRODUCT_DIR must be outside the public/ folder');
+}
 
 const app = express();
 const mongo = new MongoClient(MONGODB_URI, {
@@ -120,8 +127,14 @@ app.use(cors({
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
   const isProductImageUpload = req.path === '/admin/product-image' && req.method === 'POST';
-  if (['POST', 'PUT', 'PATCH'].includes(req.method) && !isProductImageUpload && !req.is('application/json')) {
-    return res.status(415).json({ error: 'Content-Type must be application/json' });
+  const isProductPackageMutation =
+    ['POST', 'PUT'].includes(req.method) &&
+    (/^\/admin\/products(?:\/[A-Za-z0-9_-]+)?$/.test(req.path));
+  const multipartAllowed = isProductImageUpload || isProductPackageMutation;
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) &&
+      !(multipartAllowed && req.is('multipart/form-data')) &&
+      !req.is('application/json')) {
+    return res.status(415).json({ error: 'Content-Type must be application/json or multipart/form-data for uploads' });
   }
   next();
 });
@@ -169,6 +182,13 @@ const adminWriteLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many admin changes. Please slow down.' }
+});
+const downloadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: DOWNLOAD_RATE_LIMIT_PER_HOUR,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many download requests. Please try again later.' }
 });
 app.use('/api', globalApiLimiter);
 
@@ -269,6 +289,184 @@ const productImageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: PRODUCT_IMAGE_MAX_MB * 1024 * 1024, files: 1, fields: 2 }
 });
+
+function booleanField(value) {
+  if (typeof value === 'boolean') return value;
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+function safeOriginalZipName(value) {
+  let name = path.basename(String(value || 'product.zip'))
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .trim();
+  if (!name) name = 'product.zip';
+  if (!/\.zip$/i.test(name)) name += '.zip';
+  if (name.length > 180) {
+    const stem = name.replace(/\.zip$/i, '').slice(0, 176);
+    name = `${stem}.zip`;
+  }
+  return name;
+}
+function privateAssetIdField(value) {
+  const id = String(value || '');
+  if (!/^pf_[a-f0-9]{32}$/i.test(id)) throw httpError(404, 'File unavailable');
+  return id;
+}
+function privateAssetPath(storageName) {
+  const safeName = String(storageName || '');
+  if (!/^[a-f0-9]{48}\.zip$/i.test(safeName)) throw httpError(404, 'File unavailable');
+  const target = path.resolve(PRIVATE_PRODUCT_DIR, safeName);
+  if (!target.startsWith(PRIVATE_PRODUCT_DIR + path.sep)) throw httpError(404, 'File unavailable');
+  return target;
+}
+async function removeTempProductFile(file) {
+  const p = file?.path ? path.resolve(file.path) : '';
+  if (!p || !p.startsWith(PRIVATE_PRODUCT_TEMP_DIR + path.sep)) return;
+  try { await fs.promises.unlink(p); } catch (err) { if (err?.code !== 'ENOENT') console.warn('Could not remove temp product file:', err.message); }
+}
+async function isValidZipFile(filePath) {
+  const fh = await fs.promises.open(filePath, 'r');
+  try {
+    const st = await fh.stat();
+    if (!st.isFile() || st.size < 22) return false;
+
+    const head = Buffer.alloc(4);
+    await fh.read(head, 0, 4, 0);
+    const headSig = head.readUInt32LE(0);
+    if (![0x04034b50, 0x06054b50].includes(headSig)) return false;
+
+    const tailSize = Math.min(st.size, 65557);
+    const tailStart = st.size - tailSize;
+    const tail = Buffer.alloc(tailSize);
+    await fh.read(tail, 0, tailSize, tailStart);
+    const eocdSig = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+    const eocdIndex = tail.lastIndexOf(eocdSig);
+    if (eocdIndex < 0 || eocdIndex + 22 > tail.length) return false;
+
+    const eocd = tail.subarray(eocdIndex);
+    const entriesOnDisk = eocd.readUInt16LE(8);
+    const totalEntries = eocd.readUInt16LE(10);
+    const centralSize = eocd.readUInt32LE(12);
+    const centralOffset = eocd.readUInt32LE(16);
+    const commentLength = eocd.readUInt16LE(20);
+    const absoluteEocd = tailStart + eocdIndex;
+
+    // Reject multi-disk and ZIP64 sentinel values; neither is needed for a <=100 MB product package.
+    if (entriesOnDisk !== totalEntries || totalEntries === 0xFFFF || centralSize === 0xFFFFFFFF || centralOffset === 0xFFFFFFFF) return false;
+    if (absoluteEocd + 22 + commentLength !== st.size) return false;
+    if (centralOffset + centralSize > absoluteEocd) return false;
+
+    if (totalEntries === 0) return centralSize === 0 && centralOffset === 0 && headSig === 0x06054b50;
+
+    if (headSig !== 0x04034b50 || centralSize < 46) return false;
+    const centralHead = Buffer.alloc(4);
+    await fh.read(centralHead, 0, 4, centralOffset);
+    return centralHead.readUInt32LE(0) === 0x02014b50;
+  } finally {
+    await fh.close();
+  }
+}
+async function sha256File(filePath) {
+  return await new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+    stream.on('error', reject);
+    stream.on('data', chunk => hash.update(chunk));
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+const productPackageUpload = multer({
+  storage: multer.diskStorage({
+    destination: PRIVATE_PRODUCT_TEMP_DIR,
+    filename(req, file, cb) {
+      cb(null, `incoming-${Date.now()}-${crypto.randomBytes(16).toString('hex')}.tmp`);
+    }
+  }),
+  limits: {
+    fileSize: PRODUCT_FILE_MAX_MB * 1024 * 1024,
+    files: 1,
+    fields: 12,
+    fieldSize: 4096,
+    parts: 20
+  },
+  fileFilter(req, file, cb) {
+    const original = path.basename(String(file.originalname || ''));
+    if (!/\.zip$/i.test(original)) return cb(httpError(400, 'Invalid ZIP'));
+    cb(null, true);
+  }
+});
+async function createPrivateFileAsset(uploadedFile) {
+  if (!uploadedFile?.path) return null;
+  if (!(await isValidZipFile(uploadedFile.path))) throw httpError(400, 'Invalid ZIP');
+  const assetId = `pf_${crypto.randomBytes(16).toString('hex')}`;
+  const storageName = `${crypto.randomBytes(24).toString('hex')}.zip`;
+  const finalPath = privateAssetPath(storageName);
+  const originalName = safeOriginalZipName(uploadedFile.originalname);
+  let moved = false;
+  try {
+    await fs.promises.rename(uploadedFile.path, finalPath);
+    moved = true;
+    await fs.promises.chmod(finalPath, 0o600);
+    const stat = await fs.promises.stat(finalPath);
+    const sha256 = await sha256File(finalPath);
+    const asset = {
+      _id: assetId,
+      storageName,
+      originalName,
+      size: stat.size,
+      sha256,
+      createdAt: new Date()
+    };
+    await db.collection('product_files').insertOne(asset);
+    return asset;
+  } catch (err) {
+    if (moved) {
+      try { await fs.promises.unlink(finalPath); } catch {}
+    } else {
+      await removeTempProductFile(uploadedFile);
+    }
+    throw err;
+  }
+}
+async function deletePrivateFileAsset(assetId) {
+  let id;
+  try { id = privateAssetIdField(assetId); } catch { return; }
+  const asset = await db.collection('product_files').findOne({ _id:id }, { maxTimeMS:3000 });
+  if (!asset) return;
+  let target = '';
+  try { target = privateAssetPath(asset.storageName); } catch {}
+  if (target) {
+    try { await fs.promises.unlink(target); } catch (err) { if (err?.code !== 'ENOENT') console.warn('Could not delete private product file:', err.message); }
+  }
+  await db.collection('product_files').deleteOne({ _id:id });
+}
+async function privateFileIsReferenced(assetId) {
+  const id = privateAssetIdField(assetId);
+  const [productRef, orderRef, quoteRef] = await Promise.all([
+    db.collection('products').findOne({ privateFileId:id }, { projection:{ _id:1 }, maxTimeMS:3000 }),
+    db.collection('orders').findOne({ 'items.privateFileId':id }, { projection:{ _id:1 }, maxTimeMS:3000 }),
+    db.collection('checkout_quotes').findOne({ 'items.privateFileId':id }, { projection:{ _id:1 }, maxTimeMS:3000 })
+  ]);
+  return Boolean(productRef || orderRef || quoteRef);
+}
+async function cleanupPrivateFileIfUnused(assetId) {
+  if (!assetId) return;
+  try {
+    if (!(await privateFileIsReferenced(assetId))) await deletePrivateFileAsset(assetId);
+  } catch (err) {
+    console.warn('Private file cleanup skipped:', err.message);
+  }
+}
+async function cleanupOrphanPrivateFiles() {
+  const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+  const assets = await db.collection('product_files')
+    .find({ createdAt:{ $lt:cutoff } })
+    .sort({ createdAt:1 })
+    .limit(100)
+    .maxTimeMS(5000)
+    .toArray();
+  for (const asset of assets) await cleanupPrivateFileIfUnused(asset._id);
+}
 
 function validUpiId(value) {
   const upi = textField(value, 'UPI ID', 150, { required: true });
@@ -378,6 +576,24 @@ async function requireUser(req, res, next) {
 function publicProduct(p) {
   return { id:p.id, title:p.title, subject:p.subject, type:p.type, price:p.price, description:p.description, image:p.image || '' };
 }
+function hasLegacyDownload(item) {
+  try {
+    const value = safeDownloadUrl(item?.file || '');
+    return Boolean(value && value !== '#');
+  } catch {
+    return false;
+  }
+}
+function adminProduct(p) {
+  return {
+    ...publicProduct(p),
+    file: hasLegacyDownload(p) ? p.file : '',
+    active: p.active !== false,
+    hasPrivateFile: Boolean(p.privateFileId),
+    privateFileName: p.privateFileName || '',
+    privateFileSize: Number(p.privateFileSize || 0)
+  };
+}
 function sanitizeOrderForUser(order) {
   const canDownload = ['paid','delivered'].includes(order.status);
   return {
@@ -387,7 +603,26 @@ function sanitizeOrderForUser(order) {
       title: it.title,
       qty: it.qty,
       price: it.price,
-      ...(canDownload && it.file ? { file: it.file } : {})
+      downloadAvailable: Boolean(canDownload && (it.privateFileId || hasLegacyDownload(it)))
+    })),
+    total: order.total,
+    utr: order.utr,
+    status: order.status,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt || order.createdAt
+  };
+}
+function sanitizeOrderForAdmin(order) {
+  return {
+    id: order.id,
+    buyerName: order.buyerName,
+    buyerEmail: order.buyerEmail,
+    items: (order.items || []).map(it => ({
+      productId: it.productId,
+      title: it.title,
+      qty: it.qty,
+      price: it.price,
+      hasDownload: Boolean(it.privateFileId || hasLegacyDownload(it))
     })),
     total: order.total,
     utr: order.utr,
@@ -427,7 +662,11 @@ async function resolveCartItems(submittedItems) {
       title:textField(p.title, 'product title', 160, { required:true }),
       qty:it.qty,
       price:priceField(p.price),
-      file:safeDownloadUrl(p.file || '')
+      file:safeDownloadUrl(p.file || ''),
+      ...(p.privateFileId ? {
+        privateFileId: privateAssetIdField(p.privateFileId),
+        privateFileName: safeOriginalZipName(p.privateFileName || 'product.zip')
+      } : {})
     };
   });
 }
@@ -570,6 +809,52 @@ app.get('/api/orders/me', requireUser, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+app.get('/api/orders/:orderId/download/:productId', downloadLimiter, requireUser, async (req, res, next) => {
+  try {
+    const orderId = textField(req.params.orderId, 'order id', 80, { required:true });
+    if (!/^TS-[A-Z0-9-]+$/.test(orderId)) throw httpError(404, 'Order not found');
+    const productId = productIdField(req.params.productId);
+
+    const order = await db.collection('orders').findOne(
+      { id:orderId, userId:req.user._id },
+      { maxTimeMS:3000 }
+    );
+    if (!order) throw httpError(404, 'Order not found');
+    if (!['paid','delivered'].includes(order.status)) throw httpError(403, 'Payment not approved');
+
+    const item = (order.items || []).find(it => it.productId === productId);
+    if (!item) throw httpError(404, 'Product not purchased in this order');
+
+    if (item.privateFileId) {
+      const assetId = privateAssetIdField(item.privateFileId);
+      const asset = await db.collection('product_files').findOne({ _id:assetId }, { maxTimeMS:3000 });
+      if (!asset) throw httpError(404, 'File unavailable');
+
+      const filePath = privateAssetPath(asset.storageName);
+      let stat;
+      try { stat = await fs.promises.stat(filePath); } catch { throw httpError(404, 'File unavailable'); }
+      if (!stat.isFile()) throw httpError(404, 'File unavailable');
+
+      const downloadName = safeOriginalZipName(asset.originalName || item.privateFileName || `${item.title || 'product'}.zip`);
+      res.set('Cache-Control', 'private, no-store, max-age=0');
+      res.set('Pragma', 'no-cache');
+      res.set('X-Download-Filename', encodeURIComponent(downloadName));
+      return res.download(filePath, downloadName, { dotfiles:'deny', cacheControl:false }, err => {
+        if (!err) return;
+        if (!res.headersSent) next(httpError(404, 'File unavailable'));
+        else console.warn('Download stream error:', err.message);
+      });
+    }
+
+    const legacyUrl = safeDownloadUrl(item.file || '');
+    if (legacyUrl && legacyUrl !== '#') {
+      return res.json({ legacyExternal:true, externalUrl:legacyUrl });
+    }
+
+    throw httpError(404, 'File unavailable');
+  } catch (err) { next(err); }
+});
+
 app.post('/api/admin/login', adminLoginNetworkLimiter, async (req, res, next) => {
   try {
     const password = textField(req.body.password, 'password', 128, { required: true });
@@ -680,11 +965,12 @@ app.delete('/api/admin/product-image', requireAdmin, adminWriteLimiter, async (r
 app.get('/api/admin/products', requireAdmin, async (req, res, next) => {
   try {
     const products = await db.collection('products').find({}).sort({ createdAt:1 }).limit(1000).maxTimeMS(3000).toArray();
-    res.json({ products });
+    res.json({ products:products.map(adminProduct), productFileMaxMb:PRODUCT_FILE_MAX_MB });
   } catch (err) { next(err); }
 });
 
-app.post('/api/admin/products', requireAdmin, adminWriteLimiter, async (req, res, next) => {
+app.post('/api/admin/products', requireAdmin, adminWriteLimiter, productPackageUpload.single('productFile'), async (req, res, next) => {
+  let newAsset = null;
   try {
     const title = textField(req.body.title, 'title', 160, { required:true, min:2 });
     const subject = textField(req.body.subject, 'subject', 120);
@@ -695,14 +981,30 @@ app.post('/api/admin/products', requireAdmin, adminWriteLimiter, async (req, res
     const image = safeProductImage(req.body.image);
     const file = safeDownloadUrl(req.body.file);
     const price = priceField(req.body.price);
+
+    if (req.file) newAsset = await createPrivateFileAsset(req.file);
+
     const now = new Date();
-    const product = { id:newProductId(), title, subject, type, price, description, image, file, active:true, createdAt:now, updatedAt:now };
+    const product = {
+      id:newProductId(), title, subject, type, price, description, image, file,
+      ...(newAsset ? {
+        privateFileId:newAsset._id,
+        privateFileName:newAsset.originalName,
+        privateFileSize:newAsset.size
+      } : {}),
+      active:true, createdAt:now, updatedAt:now
+    };
     await db.collection('products').insertOne(product);
-    res.status(201).json({ product });
-  } catch (err) { next(err); }
+    res.status(201).json({ product:adminProduct(product) });
+  } catch (err) {
+    await removeTempProductFile(req.file);
+    if (newAsset) await deletePrivateFileAsset(newAsset._id).catch(() => {});
+    next(err);
+  }
 });
 
-app.put('/api/admin/products/:id', requireAdmin, adminWriteLimiter, async (req, res, next) => {
+app.put('/api/admin/products/:id', requireAdmin, adminWriteLimiter, productPackageUpload.single('productFile'), async (req, res, next) => {
+  let newAsset = null;
   try {
     const id = productIdField(req.params.id);
     const title = textField(req.body.title, 'title', 160, { required:true, min:2 });
@@ -714,23 +1016,54 @@ app.put('/api/admin/products/:id', requireAdmin, adminWriteLimiter, async (req, 
     const image = safeProductImage(req.body.image);
     const file = safeDownloadUrl(req.body.file);
     const price = priceField(req.body.price);
+    const removePrivateFile = booleanField(req.body.removePrivateFile);
+
     const current = await db.collection('products').findOne({ id }, { maxTimeMS:3000 });
     if (!current) throw httpError(404, 'Product not found');
+
+    if (req.file) newAsset = await createPrivateFileAsset(req.file);
+
+    const setFields = { title,subject,type,price,description,image,file,updatedAt:new Date() };
+    const unsetFields = {};
+    if (newAsset) {
+      setFields.privateFileId = newAsset._id;
+      setFields.privateFileName = newAsset.originalName;
+      setFields.privateFileSize = newAsset.size;
+    } else if (removePrivateFile) {
+      unsetFields.privateFileId = '';
+      unsetFields.privateFileName = '';
+      unsetFields.privateFileSize = '';
+    }
+
+    const update = { $set:setFields };
+    if (Object.keys(unsetFields).length) update.$unset = unsetFields;
+
     const result = await db.collection('products').findOneAndUpdate(
       { id },
-      { $set:{ title,subject,type,price,description,image,file,updatedAt:new Date() } },
+      update,
       { returnDocument:'after' }
     );
+
     if (current.image && current.image !== image) await removeLocalProductImage(current.image);
-    res.json({ product:result });
-  } catch (err) { next(err); }
+    if (current.privateFileId && (newAsset || removePrivateFile)) {
+      await cleanupPrivateFileIfUnused(current.privateFileId);
+    }
+    res.json({ product:adminProduct(result) });
+  } catch (err) {
+    await removeTempProductFile(req.file);
+    if (newAsset) await deletePrivateFileAsset(newAsset._id).catch(() => {});
+    next(err);
+  }
 });
 
 app.delete('/api/admin/products/:id', requireAdmin, adminWriteLimiter, async (req, res, next) => {
   try {
-    const product = await db.collection('products').findOneAndDelete({ id:productIdField(req.params.id) });
+    const id = productIdField(req.params.id);
+    const product = await db.collection('products').findOne({ id }, { maxTimeMS:3000 });
     if (!product) throw httpError(404, 'Product not found');
+    await db.collection('products').deleteOne({ id });
     if (product.image) await removeLocalProductImage(product.image);
+    if (product.privateFileId) await cleanupPrivateFileIfUnused(product.privateFileId);
     res.json({ ok:true });
   } catch (err) { next(err); }
 });
@@ -746,7 +1079,7 @@ app.get('/api/admin/orders', requireAdmin, async (req, res, next) => {
       db.collection('orders').find(filter).sort({ createdAt:-1 }).skip(skip).limit(limit).maxTimeMS(3000).toArray(),
       db.collection('orders').countDocuments(filter, { maxTimeMS:3000 })
     ]);
-    res.json({ orders, page, limit, total, pages:Math.max(1, Math.ceil(total / limit)) });
+    res.json({ orders:orders.map(sanitizeOrderForAdmin), page, limit, total, pages:Math.max(1, Math.ceil(total / limit)) });
   } catch (err) { next(err); }
 });
 
@@ -763,7 +1096,7 @@ app.patch('/api/admin/orders/:id/status', requireAdmin, adminWriteLimiter, async
       { returnDocument:'after' }
     );
     if (!order) throw httpError(404, 'Order not found');
-    res.json({ order });
+    res.json({ order:sanitizeOrderForAdmin(order) });
   } catch (err) { next(err); }
 });
 
@@ -850,7 +1183,7 @@ app.use(express.static(FRONTEND_DIR, {
   dotfiles: 'ignore',
   maxAge: '1h',
   setHeaders(res, filePath) {
-    if (filePath.endsWith('config.js') || filePath.endsWith('admin.html')) res.setHeader('Cache-Control', 'no-store');
+    if (filePath.endsWith('config.js') || filePath.endsWith('admin.html') || filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-store');
   }
 }));
 
@@ -867,8 +1200,15 @@ app.use('/api', (req, res) => {
 
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error:`Product image is too large (max ${PRODUCT_IMAGE_MAX_MB} MB)` });
-    return res.status(400).json({ error:'Invalid image upload' });
+    const productFileRoute = /^\/api\/admin\/products(?:\/[^/]+)?$/.test(req.path);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        error: productFileRoute
+          ? `File too large (max ${PRODUCT_FILE_MAX_MB} MB)`
+          : `Product image is too large (max ${PRODUCT_IMAGE_MAX_MB} MB)`
+      });
+    }
+    return res.status(400).json({ error: productFileRoute ? 'Invalid ZIP' : 'Invalid image upload' });
   }
   const status = Number(err?.status || err?.statusCode || 0);
   if (err?.type === 'entity.too.large' || status === 413) return res.status(413).json({ error:'Request body is too large' });
@@ -882,14 +1222,21 @@ app.use((err, req, res, next) => {
 
 async function start() {
   await fs.promises.mkdir(PRODUCT_UPLOAD_DIR, { recursive:true, mode:0o755 });
+  await fs.promises.mkdir(PRIVATE_PRODUCT_DIR, { recursive:true, mode:0o700 });
+  await fs.promises.mkdir(PRIVATE_PRODUCT_TEMP_DIR, { recursive:true, mode:0o700 });
+  await fs.promises.chmod(PRIVATE_PRODUCT_DIR, 0o700).catch(() => {});
+  await fs.promises.chmod(PRIVATE_PRODUCT_TEMP_DIR, 0o700).catch(() => {});
   await mongo.connect();
   db = mongo.db(DB_NAME);
   await Promise.all([
     db.collection('products').createIndex({ id:1 }, { unique:true }),
     db.collection('products').createIndex({ active:1, createdAt:1 }),
+    db.collection('products').createIndex({ privateFileId:1 }, { sparse:true }),
+    db.collection('product_files').createIndex({ createdAt:1 }),
     db.collection('orders').createIndex({ id:1 }, { unique:true }),
     db.collection('orders').createIndex({ userId:1, createdAt:-1 }),
     db.collection('orders').createIndex({ status:1, createdAt:-1 }),
+    db.collection('orders').createIndex({ 'items.privateFileId':1 }, { sparse:true }),
     db.collection('orders').createIndex({ utr:1 }),
     db.collection('users').createIndex({ tokenHash:1 }, { unique:true }),
     db.collection('users').createIndex({ email:1 }),
@@ -897,7 +1244,8 @@ async function start() {
     db.collection('users').createIndex({ googleSub:1 }, { unique:true, sparse:true }),
     db.collection('admin_login_attempts').createIndex({ expiresAt:1 }, { expireAfterSeconds:0 }),
     db.collection('checkout_quotes').createIndex({ expiresAt:1 }, { expireAfterSeconds:0 }),
-    db.collection('checkout_quotes').createIndex({ userId:1, createdAt:-1 })
+    db.collection('checkout_quotes').createIndex({ userId:1, createdAt:-1 }),
+    db.collection('checkout_quotes').createIndex({ 'items.privateFileId':1 }, { sparse:true })
   ]);
 
   const count = await db.collection('products').countDocuments({}, { maxTimeMS:3000 });
@@ -906,6 +1254,12 @@ async function start() {
     await db.collection('products').insertMany(DEFAULT_PRODUCTS.map(p => ({ ...p, active:true, createdAt:now, updatedAt:now })));
   }
 
+  await cleanupOrphanPrivateFiles().catch(err => console.warn('Startup private-file cleanup skipped:', err.message));
+  const privateCleanupTimer = setInterval(() => {
+    cleanupOrphanPrivateFiles().catch(err => console.warn('Scheduled private-file cleanup skipped:', err.message));
+  }, 60 * 60 * 1000);
+  privateCleanupTimer.unref();
+
   // Upgrade older admin config documents created before tokenVersion existed.
   await db.collection('admin_config').updateOne(
     { _id:'primary', tokenVersion:{ $exists:false } },
@@ -913,7 +1267,9 @@ async function start() {
   );
 
   const server = app.listen(PORT, HOST, () => console.log(`Team Secret Store listening on http://${HOST}:${PORT}`));
-  server.requestTimeout = 15000;
+  // Large private ZIP uploads need more than the normal API timeout. Multer still
+  // enforces PRODUCT_FILE_MAX_MB, and Cloudflare/rate limits remain the outer guard.
+  server.requestTimeout = 5 * 60 * 1000;
   server.headersTimeout = 10000;
   server.keepAliveTimeout = 5000;
   server.maxRequestsPerSocket = 1000;

@@ -22,7 +22,7 @@
 .order-filter{display:flex;gap:8px;align-items:center}.order-filter select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}.pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px}.pager .small{min-width:110px;text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s;z-index:100}.toast.show{opacity:1;transform:translate(-50%,0)}
 .notice{padding:12px 14px;border-radius:9px;background:var(--accent-soft);border:1px solid #efd7ad;font-size:13px;line-height:1.5}.login-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
-.image-picker{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.image-preview{width:150px;height:110px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafbfc;color:var(--muted);font-size:12px}.image-preview img{width:100%;height:100%;object-fit:cover;display:block}.product-thumb{width:58px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#f5f6f8}.upload-help{font-size:12px;color:var(--muted);margin-top:6px}.image-dropzone{border:2px dashed #c7ced8;border-radius:10px;padding:16px;text-align:center;background:#fafbfc;transition:.15s;outline:none}.image-dropzone.dragover{border-color:var(--accent);background:var(--accent-soft)}.image-dropzone strong{display:block;margin-bottom:4px}.image-dropzone .drop-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px}.image-dropzone input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.selected-file{font-size:12px;color:var(--ink);margin-top:8px;word-break:break-all}
+.image-picker{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.image-preview{width:150px;height:110px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafbfc;color:var(--muted);font-size:12px}.image-preview img{width:100%;height:100%;object-fit:cover;display:block}.product-thumb{width:58px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#f5f6f8}.upload-help{font-size:12px;color:var(--muted);margin-top:6px}.image-dropzone{border:2px dashed #c7ced8;border-radius:10px;padding:16px;text-align:center;background:#fafbfc;transition:.15s;outline:none}.image-dropzone.dragover{border-color:var(--accent);background:var(--accent-soft)}.image-dropzone strong{display:block;margin-bottom:4px}.image-dropzone .drop-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:10px}.image-dropzone input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.selected-file{font-size:12px;color:var(--ink);margin-top:8px;word-break:break-all}.package-box{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fafbfc}.package-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.file-state{margin-top:8px;font-size:12.5px;line-height:1.45}.file-state.ok{color:var(--ok)}.file-state.warn{color:#8a5a16}.file-state.none{color:var(--muted)}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.span2{grid-column:auto}.wrap{padding:18px}.topbar-inner{padding:12px 18px}}@media(max-width:520px){.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:14px}.stat .value{font-size:23px}.top-actions .store-text{display:none}}
 </style>
 </head>
@@ -79,11 +79,23 @@
           <div class="field"><label>Price (₹)</label><input id="pPrice" type="number" min="0" step="0.01"></div>
           <div class="field span2"><label>Product image</label><div class="image-picker"><div class="image-preview" id="pImagePreview">No image</div><div style="flex:1;min-width:240px"><div id="imageDropzone" class="image-dropzone" tabindex="0"><strong>Drop or paste an image here</strong><div class="upload-help">Drag an image from Explorer, press Ctrl+V after copying an image, or choose a file.</div><div class="drop-actions"><button id="chooseImageBtn" type="button" class="mini">Choose image</button><input id="pImage" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.avif"></div><div id="selectedImageName" class="selected-file"></div></div><div class="upload-help">JPG, PNG, WebP or AVIF · max 2 MB. Windows File Explorer Gallery is a virtual folder, so use Pictures/Downloads, drag & drop, or paste if Gallery refuses direct file selection.</div><button id="removeImageBtn" type="button" class="mini danger hidden" style="margin-top:8px">Remove current image</button></div></div></div>
           <div class="field span2"><label>Description</label><textarea id="pDesc" maxlength="2000"></textarea></div>
-          <div class="field span2"><label>Download link</label><input id="pFile" type="url" maxlength="2000" placeholder="https://..."></div>
+          <div class="field span2">
+            <label>Product ZIP / File Upload</label>
+            <div class="package-box">
+              <div class="package-row">
+                <input id="pProductFile" type="file" accept=".zip,application/zip,application/x-zip-compressed">
+                <button id="removeProductFileBtn" type="button" class="mini danger hidden">Remove current ZIP</button>
+              </div>
+              <div id="currentProductFileStatus" class="file-state none">No private ZIP uploaded.</div>
+              <div id="selectedProductFileName" class="selected-file"></div>
+              <div class="upload-help">ZIP is stored outside the public folder and is downloadable only through authenticated paid-order checks. Max size: <span id="productFileMaxLabel">100 MB</span>.</div>
+            </div>
+          </div>
+          <div class="field span2"><label>Legacy external download link (optional)</label><input id="pFile" type="url" maxlength="2000" placeholder="https://..."><div class="upload-help">Only for old/external products. New products can use the private ZIP upload above.</div></div>
         </div>
         <div class="actions"><button id="saveProductBtn" class="btn btn-primary">Save product</button><button id="cancelEditBtn" class="btn btn-outline hidden">Cancel edit</button></div>
       </div>
-      <div class="section-card card"><div class="section-head"><h2>Products</h2></div><div class="table-wrap"><table><thead><tr><th>Image</th><th>Title</th><th>Subject</th><th>Type</th><th>Price</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div></div>
+      <div class="section-card card"><div class="section-head"><h2>Products</h2></div><div class="table-wrap"><table><thead><tr><th>Image</th><th>Title</th><th>Subject</th><th>Type</th><th>Price</th><th>Digital file</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div></div>
     </section>
 
     <section id="tabUsers" class="hidden">
@@ -121,6 +133,9 @@ let editingProductId = null;
 let currentProductImage = '';
 let previewObjectUrl = '';
 let selectedProductImageFile = null;
+let selectedProductPackageFile = null;
+let removeCurrentProductFile = false;
+let productFileMaxMb = 100;
 let orderPage = 1, orderPages = 1;
 let userPage = 1, userPages = 1;
 const PAGE_SIZE = 50;
@@ -176,6 +191,40 @@ function handleProductImageFile(file){
   $('selectedImageName').textContent=`Selected: ${file.name||'pasted-image'} (${Math.max(1,Math.round(file.size/1024))} KB)`;
   previewObjectUrl=URL.createObjectURL(file);setImagePreview(previewObjectUrl);return true;
 }
+function formatBytes(bytes){
+  const n=Number(bytes||0);if(!Number.isFinite(n)||n<=0)return '0 B';
+  if(n<1024)return `${n} B`;if(n<1024*1024)return `${(n/1024).toFixed(1)} KB`;
+  return `${(n/(1024*1024)).toFixed(1)} MB`;
+}
+function setProductFileStatus(product){
+  const box=$('currentProductFileStatus');
+  if(removeCurrentProductFile){
+    box.className='file-state warn';box.textContent='Current private ZIP will be removed when you save.';
+    $('removeProductFileBtn').classList.add('hidden');return;
+  }
+  if(selectedProductPackageFile){
+    box.className='file-state ok';
+    box.textContent=product?.hasPrivateFile?'New ZIP selected — it will replace the current private file on save.':'New private ZIP selected.';
+    $('removeProductFileBtn').classList.toggle('hidden',!product?.hasPrivateFile);return;
+  }
+  if(product?.hasPrivateFile){
+    box.className='file-state ok';
+    box.textContent=`Private ZIP uploaded: ${product.privateFileName||'product.zip'}${product.privateFileSize?` · ${formatBytes(product.privateFileSize)}`:''}`;
+    $('removeProductFileBtn').classList.remove('hidden');return;
+  }
+  if(product?.file){
+    box.className='file-state warn';box.textContent='No private ZIP. This product currently uses a legacy external download link.';
+  }else{
+    box.className='file-state none';box.textContent='No private ZIP uploaded.';
+  }
+  $('removeProductFileBtn').classList.add('hidden');
+}
+async function saveProductForm(path,method,form){
+  const res=await fetch(API_BASE_URL+path,{method,credentials:'same-origin',body:form});
+  let data={};try{data=await res.json();}catch{}
+  if(!res.ok){if(res.status===401)setLoggedOut(false);throw new Error(data.error||`Product save failed (${res.status})`);}
+  return data;
+}
 
 let loginLockTimer=null;
 function showLoginLock(seconds){
@@ -201,7 +250,7 @@ $('orderStatusFilter').onchange=async()=>{orderPage=1;await loadOrders();};
 async function loadAll(){
   try{
     const [p,s,st]=await Promise.all([api('/api/admin/products'),api('/api/admin/settings'),api('/api/admin/stats')]);
-    products=p.products||[];$('upiIdInput').value=s.upiId||'';$('supportContactInput').value=s.supportContact||'';$('supportUrlInput').value=s.supportUrl||'';stats=st||stats;
+    products=p.products||[];productFileMaxMb=Number(p.productFileMaxMb||100);$('productFileMaxLabel').textContent=`${productFileMaxMb} MB`;$('upiIdInput').value=s.upiId||'';$('supportContactInput').value=s.supportContact||'';$('supportUrlInput').value=s.supportUrl||'';stats=st||stats;
     await Promise.all([loadOrders(),loadUsers()]);
     renderProducts();renderStats();
   }catch(err){toast(err.message);}
@@ -228,16 +277,17 @@ function renderOrders(){
   rows.querySelectorAll('[data-save-status]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.saveStatus;const select=rows.querySelector(`[data-status="${CSS.escape(id)}"]`);try{const data=await api(`/api/admin/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:{status:select.value}});const idx=orders.findIndex(x=>x.id===id);if(idx>=0)orders[idx]=data.order;stats=await api('/api/admin/stats');renderOrders();renderStats();toast('Order status updated');}catch(err){toast(err.message);}});
 }
 function renderProducts(){
-  const rows=$('productRows');if(!products.length){rows.innerHTML='<tr><td colspan="6" class="muted">No products.</td></tr>';return;}
-  rows.innerHTML=products.map(p=>{const img=safeImageUrl(p.image);return `<tr><td>${img?`<img class="product-thumb" src="${escapeHtml(img)}" alt="">`:'—'}</td><td><strong>${escapeHtml(p.title)}</strong></td><td>${escapeHtml(p.subject||'—')}</td><td>${escapeHtml(p.type||'—')}</td><td>${money(p.price)}</td><td><div class="actions"><button class="mini" data-edit="${escapeHtml(p.id)}">Edit</button><button class="mini danger" data-delete="${escapeHtml(p.id)}">Delete</button></div></td></tr>`;}).join('');
+  const rows=$('productRows');if(!products.length){rows.innerHTML='<tr><td colspan="7" class="muted">No products.</td></tr>';return;}
+  rows.innerHTML=products.map(p=>{const img=safeImageUrl(p.image);const fileState=p.hasPrivateFile?`<strong>Private ZIP</strong><br><span class="small muted">${escapeHtml(p.privateFileName||'product.zip')}${p.privateFileSize?` · ${escapeHtml(formatBytes(p.privateFileSize))}`:''}</span>`:(p.file?'<span class="small">Legacy external link</span>':'<span class="small muted">No file</span>');return `<tr><td>${img?`<img class="product-thumb" src="${escapeHtml(img)}" alt="">`:'—'}</td><td><strong>${escapeHtml(p.title)}</strong></td><td>${escapeHtml(p.subject||'—')}</td><td>${escapeHtml(p.type||'—')}</td><td>${money(p.price)}</td><td>${fileState}</td><td><div class="actions"><button class="mini" data-edit="${escapeHtml(p.id)}">Edit</button><button class="mini danger" data-delete="${escapeHtml(p.id)}">Delete</button></div></td></tr>`;}).join('');
   rows.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editProduct(b.dataset.edit));rows.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteProduct(b.dataset.delete));
 }
 function editProduct(id){
   const p=products.find(x=>x.id===id);if(!p)return;editingProductId=id;currentProductImage=p.image||'';clearPreviewObjectUrl();
-  $('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('pImage').value='';selectedProductImageFile=null;$('selectedImageName').textContent='';setImagePreview(currentProductImage);$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});
+  selectedProductPackageFile=null;removeCurrentProductFile=false;$('pProductFile').value='';$('selectedProductFileName').textContent='';
+  $('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('pImage').value='';selectedProductImageFile=null;$('selectedImageName').textContent='';setImagePreview(currentProductImage);setProductFileStatus(p);$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});
 }
 function resetProductForm(){
-  editingProductId=null;currentProductImage='';clearPreviewObjectUrl();$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pImage').value='';selectedProductImageFile=null;$('selectedImageName').textContent='';$('pType').value='ebook';setImagePreview('');$('cancelEditBtn').classList.add('hidden');
+  editingProductId=null;currentProductImage='';clearPreviewObjectUrl();selectedProductPackageFile=null;removeCurrentProductFile=false;$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pImage').value='';$('pProductFile').value='';selectedProductImageFile=null;$('selectedImageName').textContent='';$('selectedProductFileName').textContent='';$('pType').value='ebook';setImagePreview('');setProductFileStatus(null);$('cancelEditBtn').classList.add('hidden');
 }
 $('chooseImageBtn').onclick=()=>$('pImage').click();
 $('pImage').onchange=()=>{const file=$('pImage').files?.[0]||null;if(!handleProductImageFile(file))$('pImage').value='';};
@@ -247,16 +297,29 @@ const imageDropzone=$('imageDropzone');
 imageDropzone.addEventListener('drop',e=>{const file=[...(e.dataTransfer?.files||[])].find(f=>String(f.type||'').startsWith('image/')||/\.(?:jpe?g|png|webp|avif)$/i.test(f.name||''));if(!file){toast('Drop a JPG, PNG, WebP or AVIF image');return;}$('pImage').value='';handleProductImageFile(file);});
 imageDropzone.addEventListener('paste',e=>{const file=[...(e.clipboardData?.files||[])].find(f=>String(f.type||'').startsWith('image/'));if(!file){const item=[...(e.clipboardData?.items||[])].find(i=>String(i.type||'').startsWith('image/'));if(item){const pasted=item.getAsFile();if(pasted){e.preventDefault();$('pImage').value='';handleProductImageFile(pasted);return;}}toast('Clipboard does not contain an image');return;}e.preventDefault();$('pImage').value='';handleProductImageFile(file);});
 document.addEventListener('paste',e=>{if($('tabProducts').classList.contains('hidden'))return;if(document.activeElement&&['INPUT','TEXTAREA'].includes(document.activeElement.tagName)&&document.activeElement!==imageDropzone)return;const item=[...(e.clipboardData?.items||[])].find(i=>String(i.type||'').startsWith('image/'));if(!item)return;const file=item.getAsFile();if(file){e.preventDefault();$('pImage').value='';handleProductImageFile(file);}});
+$('pProductFile').onchange=()=>{
+  const file=$('pProductFile').files?.[0]||null;
+  if(!file){selectedProductPackageFile=null;$('selectedProductFileName').textContent='';setProductFileStatus(products.find(x=>x.id===editingProductId));return;}
+  if(!/\.zip$/i.test(file.name||'')){toast('Invalid ZIP: choose a .zip file');$('pProductFile').value='';selectedProductPackageFile=null;return;}
+  if(file.size>productFileMaxMb*1024*1024){toast(`File too large. Max ${productFileMaxMb} MB`);$('pProductFile').value='';selectedProductPackageFile=null;return;}
+  selectedProductPackageFile=file;removeCurrentProductFile=false;$('selectedProductFileName').textContent=`Selected: ${file.name} · ${formatBytes(file.size)}`;setProductFileStatus(products.find(x=>x.id===editingProductId));
+};
+$('removeProductFileBtn').onclick=()=>{
+  selectedProductPackageFile=null;removeCurrentProductFile=true;$('pProductFile').value='';$('selectedProductFileName').textContent='';setProductFileStatus(products.find(x=>x.id===editingProductId));
+};
 $('removeImageBtn').onclick=()=>{clearPreviewObjectUrl();currentProductImage='';selectedProductImageFile=null;$('selectedImageName').textContent='';$('pImage').value='';setImagePreview('');};
 $('cancelEditBtn').onclick=resetProductForm;
 $('saveProductBtn').onclick=async()=>{
   const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}
   const btn=$('saveProductBtn');btn.disabled=true;let uploadedImage='';
   try{
-    let image=currentProductImage;const file=selectedProductImageFile;if(file){uploadedImage=await uploadProductImage(file);image=uploadedImage;}
-    const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim(),image};
-    if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});
-    const data=await api('/api/admin/products');products=data.products||[];stats=await api('/api/admin/stats');resetProductForm();renderProducts();renderStats();toast('Product saved');
+    let image=currentProductImage;const imageFile=selectedProductImageFile;if(imageFile){uploadedImage=await uploadProductImage(imageFile);image=uploadedImage;}
+    const form=new FormData();
+    form.append('title',title);form.append('subject',$('pSubject').value.trim());form.append('type',$('pType').value);form.append('price',String(price));form.append('description',$('pDesc').value.trim());form.append('file',$('pFile').value.trim());form.append('image',image);form.append('removePrivateFile',removeCurrentProductFile?'true':'false');
+    if(selectedProductPackageFile)form.append('productFile',selectedProductPackageFile,selectedProductPackageFile.name);
+    const route=editingProductId?`/api/admin/products/${encodeURIComponent(editingProductId)}`:'/api/admin/products';
+    await saveProductForm(route,editingProductId?'PUT':'POST',form);
+    const data=await api('/api/admin/products');products=data.products||[];productFileMaxMb=Number(data.productFileMaxMb||productFileMaxMb);$('productFileMaxLabel').textContent=`${productFileMaxMb} MB`;stats=await api('/api/admin/stats');resetProductForm();renderProducts();renderStats();toast('Product saved');
   }catch(err){
     if(uploadedImage){try{await api('/api/admin/product-image',{method:'DELETE',body:{image:uploadedImage}});}catch{}}
     toast(err.message);

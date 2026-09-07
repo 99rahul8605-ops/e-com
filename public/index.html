@@ -227,7 +227,8 @@
   .order-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px;}
   .order-meta{font-size:12px;color:var(--muted);}
   .download-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
-  .download-list a{font-size:13px;font-weight:600;color:var(--ink);}
+  .download-list button{align-self:flex-start;border:1px solid var(--ink);background:var(--paper-raised);color:var(--ink);border-radius:7px;padding:7px 10px;font-size:13px;font-weight:700;}
+  .download-list button:disabled{opacity:.55;cursor:not-allowed;}
   .account-info{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:14px;}
   .table-wrap{overflow-x:auto;width:100%;}
   .status-select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper-raised);font:inherit;font-size:12px;}
@@ -598,17 +599,56 @@ function renderMyOrders(orders){
   const list=document.getElementById('myOrdersList');
   if(!orders.length){list.innerHTML='<div class="muted-small">You have no orders yet.</div>';return;}
   list.innerHTML=orders.map(o=>{
-    const downloads=(['paid','delivered'].includes(o.status)?(o.items||[]).filter(it=>it.file):[]);
+    const downloads=(['paid','delivered'].includes(o.status)?(o.items||[]).filter(it=>it.downloadAvailable):[]);
     return `<div class="order-card">
       <div class="order-card-head"><div><strong>${escapeHtml(o.id)}</strong><div class="order-meta">${escapeHtml(dateText(o.createdAt))}</div></div>${statusPill(o.status)}</div>
       <div style="font-size:13px;">${(o.items||[]).map(it=>`${escapeHtml(it.title)} ×${Number(it.qty)||1}`).join('<br>')}</div>
       <div style="display:flex;justify-content:space-between;margin-top:10px;font-weight:600;"><span>Total</span><span>${money(o.total)}</span></div>
       <div class="order-meta" style="margin-top:5px;">UTR: ${escapeHtml(o.utr||'—')}</div>
-      ${downloads.length?`<div class="download-list"><strong style="font-size:13px;">Downloads</strong>${downloads.map(it=>`<a href="${escapeHtml(safeUrl(it.file))}" target="_blank" rel="noopener">Download ${escapeHtml(it.title)}</a>`).join('')}</div>`:''}
+      ${downloads.length?`<div class="download-list"><strong style="font-size:13px;">Downloads</strong>${downloads.map(it=>`<button type="button" data-download-order="${escapeHtml(o.id)}" data-download-product="${escapeHtml(it.productId)}" data-download-title="${escapeHtml(it.title)}">Download ${escapeHtml(it.title)}</button>`).join('')}</div>`:''}
       ${o.status==='pending'?'<div class="muted-small" style="margin-top:9px;">Payment verification pending.</div>':''}
       ${o.status==='rejected'?'<div class="muted-small" style="margin-top:9px;color:var(--danger);">Payment/order was rejected. Contact support if this looks wrong.</div>':''}
     </div>`;
   }).join('');
+  list.querySelectorAll('[data-download-order]').forEach(btn=>btn.onclick=()=>downloadPurchasedProduct(btn));
+}
+async function downloadPurchasedProduct(btn){
+  if(!currentUser||!userToken){openModal('loginModal');renderGoogleButton();return;}
+  const orderId=btn.dataset.downloadOrder,productId=btn.dataset.downloadProduct,title=btn.dataset.downloadTitle||'product';
+  const oldText=btn.textContent;btn.disabled=true;btn.textContent='Preparing download…';
+  try{
+    const res=await fetch(`${API_BASE_URL}/api/orders/${encodeURIComponent(orderId)}/download/${encodeURIComponent(productId)}`,{
+      method:'GET',
+      headers:{Authorization:`Bearer ${userToken}`},
+      credentials:'same-origin'
+    });
+    const contentType=String(res.headers.get('content-type')||'').toLowerCase();
+    if(!res.ok){
+      let message=`Download failed (${res.status})`;
+      if(contentType.includes('application/json')){try{const data=await res.json();message=data.error||message;}catch{}}
+      if(res.status===401)logoutUser(false);
+      throw new Error(message);
+    }
+    if(contentType.includes('application/json')){
+      const data=await res.json();
+      if(data.legacyExternal&&data.externalUrl){
+        const url=safeUrl(data.externalUrl);if(url==='#')throw new Error('File unavailable');
+        window.open(url,'_blank','noopener');
+        toast('Opening legacy download');
+        return;
+      }
+      throw new Error('File unavailable');
+    }
+    const blob=await res.blob();
+    let filename=`${title}.zip`.replace(/[\\/:*?"<>|]+/g,'_');
+    const encoded=res.headers.get('x-download-filename');
+    if(encoded){try{filename=decodeURIComponent(encoded);}catch{}}
+    const blobUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=blobUrl;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
+    toast('Download started');
+  }catch(err){toast(err.message);}
+  finally{btn.disabled=false;btn.textContent=oldText;}
 }
 
 // Checkout

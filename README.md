@@ -17,12 +17,14 @@ public/
   index.html       customer storefront
   admin.html       separate admin login/dashboard
   404.html
-  config.js        public browser config
-  uploads/products/ generated product images (created automatically)
+  config.js        public browser config fallback
+  uploads/products/ public product images only
 backend/
   server.js        Express + MongoDB API
   package.json
   .env.example
+private_storage/
+  products/        default PRIVATE paid ZIP storage (never served statically)
 README.md
 ```
 
@@ -53,6 +55,12 @@ AUTH_RATE_LIMIT_PER_15_MIN=20
 ORDER_RATE_LIMIT_PER_10_MIN=10
 ADMIN_READ_PAGE_SIZE=50
 PRODUCT_IMAGE_MAX_MB=2
+
+# Keep paid digital files outside public/. For production, an external-to-repo
+# directory survives normal git/code replacement more safely.
+PRIVATE_PRODUCT_DIR=/root/team-secret-private/product-files
+PRODUCT_FILE_MAX_MB=100
+DOWNLOAD_RATE_LIMIT_PER_HOUR=60
 ```
 
 Do not put `.env` in GitHub.
@@ -191,7 +199,7 @@ checkout_quotes
 
 ## Google login
 
-The backend supports Google credential verification through `GOOGLE_CLIENT_ID`. Google Sign-In becomes active after a real Web OAuth Client ID is configured in both backend `.env` and `public/config.js`.
+The backend supports Google credential verification through `GOOGLE_CLIENT_ID`. Set the Web OAuth Client ID only in `backend/.env`; `/config.js` is generated dynamically by Node for the browser.
 
 ## Product images
 
@@ -250,3 +258,99 @@ Admin -> Products now supports:
 - JPG, PNG, WebP and AVIF uploads (2 MB default limit)
 
 Windows File Explorer Gallery is a virtual shell view and Windows may refuse direct browser file selection from it. This is an OS limitation, not a website permission issue. Use Pictures/Downloads, drag & drop, or clipboard paste instead.
+
+
+## Protected digital-product downloads
+
+This build stores new paid ZIP files outside `public/` and never exposes their
+filesystem path or private asset ID in public/customer API responses.
+
+### Admin upload
+
+Admin -> Products -> Add/Edit product now has **Product ZIP / File Upload**.
+
+- accepted file: `.zip`
+- default maximum: `100 MB` (`PRODUCT_FILE_MAX_MB`)
+- server validates both the extension and ZIP structure/signatures
+- the original filename is sanitized only for the buyer-facing download name
+- the on-disk filename is a cryptographically random server-generated name
+- private files are created with restrictive filesystem permissions
+- existing product-image upload remains unchanged
+
+An optional **Legacy external download link** field remains only for old products.
+New products do not need Google Drive or any external URL.
+
+### Buyer download flow
+
+For a buyer to download:
+
+1. Google/user session must be valid.
+2. `/api/orders/:orderId/download/:productId` loads the order using both the
+   supplied order ID and the logged-in user's MongoDB `_id`.
+3. The order must be `paid` or `delivered`.
+4. The requested product must exist inside that exact order snapshot.
+5. For a private product file, the server resolves only the random storage name
+   stored in the `product_files` collection, validates it again, then streams it.
+6. For historical external-link products, the protected route returns the old
+   HTTPS link only after all checks pass.
+
+`/api/orders/me` returns only `downloadAvailable`; it does not return private
+storage IDs, paths, or direct file URLs. My Orders uses an authenticated `fetch`
+with the user's bearer token, then downloads the returned blob.
+
+Pending/rejected orders receive no Download button.
+
+### Replacement / deletion
+
+Orders snapshot the private file asset used at checkout. Replacing a product ZIP
+therefore does not break old orders. The previous file is deleted only after it
+is no longer referenced by:
+
+- a product
+- an order
+- an active checkout quote
+
+Unused/orphan private assets are also cleaned periodically.
+
+### Private storage deployment
+
+Recommended VPS setup:
+
+```bash
+mkdir -p /root/team-secret-private/product-files
+chmod 700 /root/team-secret-private
+chmod 700 /root/team-secret-private/product-files
+```
+
+Then set:
+
+```env
+PRIVATE_PRODUCT_DIR=/root/team-secret-private/product-files
+PRODUCT_FILE_MAX_MB=100
+DOWNLOAD_RATE_LIMIT_PER_HOUR=60
+```
+
+Do **not** place `PRIVATE_PRODUCT_DIR` under `/root/e-com/public`,
+`public/uploads`, or any other static/frontend directory.
+
+### Upgrade commands
+
+Preserve `backend/.env`, public product images, and any existing private files,
+then update the tracked code:
+
+```bash
+cd /root/e-com
+git pull
+cd backend
+npm install
+pm2 restart e-com --update-env
+pm2 logs e-com --lines 50
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:3000/api/health
+```
+
+The server refuses to start if `PRIVATE_PRODUCT_DIR` points inside `public/`.
