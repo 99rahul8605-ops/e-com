@@ -19,7 +19,7 @@
 .section-card{padding:20px;margin-bottom:20px}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.section-head h2{margin:0;font-size:18px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.span2{grid-column:1/-1}.actions{display:flex;gap:8px;flex-wrap:wrap}
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:760px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#fafbfc}tbody tr:last-child td{border-bottom:0}.mini{padding:7px 10px;border-radius:7px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:12px}.mini.danger{color:var(--danger)}
 .status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11.5px;font-weight:800;text-transform:capitalize}.pending{background:#fbf3e2;color:#8a5a16}.paid{background:#eef6f1;color:var(--ok)}.delivered{background:#eaf1fa;color:var(--blue)}.rejected{background:#fbedeb;color:var(--danger)}
-.order-filter{display:flex;gap:8px;align-items:center}.order-filter select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}
+.order-filter{display:flex;gap:8px;align-items:center}.order-filter select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}.pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px}.pager .small{min-width:110px;text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s;z-index:100}.toast.show{opacity:1;transform:translate(-50%,0)}
 .notice{padding:12px 14px;border-radius:9px;background:var(--accent-soft);border:1px solid #efd7ad;font-size:13px;line-height:1.5}.login-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.span2{grid-column:auto}.wrap{padding:18px}.topbar-inner{padding:12px 18px}}@media(max-width:520px){.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:14px}.stat .value{font-size:23px}.top-actions .store-text{display:none}}
@@ -32,7 +32,7 @@
     <h1>Admin sign in</h1>
     <p>This area is separate from the customer store. Enter the admin password to continue.</p>
     <form id="loginForm">
-      <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" autocomplete="current-password" required autofocus></div>
+      <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" type="password" maxlength="128" autocomplete="current-password" required autofocus></div>
       <button id="loginBtn" class="btn btn-primary btn-block" type="submit">Sign in</button>
       <div id="loginError" class="login-error"></div>
     </form>
@@ -64,7 +64,7 @@
     <section id="tabOrders">
       <div class="section-card card">
         <div class="section-head"><h2>Orders</h2><div class="order-filter"><label class="small muted" for="orderStatusFilter">Status</label><select id="orderStatusFilter"><option value="all">All</option><option value="pending">Pending</option><option value="paid">Paid</option><option value="delivered">Delivered</option><option value="rejected">Rejected</option></select></div></div>
-        <div class="table-wrap"><table><thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>UTR</th><th>Status</th><th>Update</th></tr></thead><tbody id="orderRows"><tr><td colspan="7">Loading…</td></tr></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>UTR</th><th>Status</th><th>Update</th></tr></thead><tbody id="orderRows"><tr><td colspan="7">Loading…</td></tr></tbody></table></div><div class="pager"><button id="orderPrev" class="mini">Previous</button><span id="orderPageInfo" class="small muted">Page 1</span><button id="orderNext" class="mini">Next</button></div>
       </div>
     </section>
 
@@ -72,12 +72,12 @@
       <div class="section-card card">
         <div class="section-head"><h2 id="productFormTitle">Add product</h2></div>
         <div class="grid2">
-          <div class="field"><label>Title</label><input id="pTitle"></div>
-          <div class="field"><label>Subject</label><input id="pSubject"></div>
+          <div class="field"><label>Title</label><input id="pTitle" maxlength="160"></div>
+          <div class="field"><label>Subject</label><input id="pSubject" maxlength="120"></div>
           <div class="field"><label>Type</label><select id="pType"><option value="ebook">E-book</option><option value="handwritten">Handwritten notes</option><option value="guide">Study guide</option><option value="template">Template</option><option value="website">Website template</option></select></div>
           <div class="field"><label>Price (₹)</label><input id="pPrice" type="number" min="0" step="0.01"></div>
-          <div class="field span2"><label>Description</label><textarea id="pDesc"></textarea></div>
-          <div class="field span2"><label>Download link</label><input id="pFile" placeholder="https://..."></div>
+          <div class="field span2"><label>Description</label><textarea id="pDesc" maxlength="2000"></textarea></div>
+          <div class="field span2"><label>Download link</label><input id="pFile" type="url" maxlength="2000" placeholder="https://..."></div>
         </div>
         <div class="actions"><button id="saveProductBtn" class="btn btn-primary">Save product</button><button id="cancelEditBtn" class="btn btn-outline hidden">Cancel edit</button></div>
       </div>
@@ -85,17 +85,17 @@
     </section>
 
     <section id="tabUsers" class="hidden">
-      <div class="section-card card"><div class="section-head"><h2>Users</h2></div><div class="table-wrap"><table><thead><tr><th>User</th><th>Provider</th><th>Joined</th><th>Last seen</th><th>Orders</th><th>Ordered value</th></tr></thead><tbody id="userRows"></tbody></table></div></div>
+      <div class="section-card card"><div class="section-head"><h2>Users</h2></div><div class="table-wrap"><table><thead><tr><th>User</th><th>Provider</th><th>Joined</th><th>Last seen</th><th>Orders</th><th>Ordered value</th></tr></thead><tbody id="userRows"></tbody></table></div><div class="pager"><button id="userPrev" class="mini">Previous</button><span id="userPageInfo" class="small muted">Page 1</span><button id="userNext" class="mini">Next</button></div></div>
     </section>
 
     <section id="tabSettings" class="hidden">
       <div class="section-card card">
         <div class="section-head"><h2>Payment settings</h2></div>
-        <div class="field"><label>UPI ID</label><input id="upiIdInput" placeholder="yourname@upi"></div><button id="saveUpiBtn" class="btn btn-primary">Save UPI ID</button>
+        <div class="field"><label>UPI ID</label><input id="upiIdInput" maxlength="150" placeholder="yourname@upi"></div><button id="saveUpiBtn" class="btn btn-primary">Save UPI ID</button>
       </div>
       <div class="section-card card">
         <div class="section-head"><h2>Admin password</h2></div>
-        <div class="field"><label>New password</label><input id="newAdminPass" type="password" autocomplete="new-password"></div><button id="saveAdminPassBtn" class="btn btn-primary">Change password</button>
+        <div class="field"><label>New password</label><input id="newAdminPass" type="password" minlength="12" maxlength="128" autocomplete="new-password"></div><button id="saveAdminPassBtn" class="btn btn-primary">Change password</button>
       </div>
       <div class="notice">Admin URL is intentionally not linked from the public storefront. The URL itself is not a security boundary; all admin data and mutations remain protected by backend authentication.</div>
     </section>
@@ -105,32 +105,49 @@
 <script>
 const APP_CONFIG = window.TEAM_SECRET_CONFIG || {};
 const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || '').replace(/\/$/, '');
-let adminToken = sessionStorage.getItem('ts-admin-token') || '';
 let products = [];
 let orders = [];
 let users = [];
+let stats = {products:0,orders:0,pending:0,users:0};
 let editingProductId = null;
+let orderPage = 1, orderPages = 1;
+let userPage = 1, userPages = 1;
+const PAGE_SIZE = 50;
 
 const $ = id => document.getElementById(id);
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function money(v){return '₹'+Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
 function dateText(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});}
-function toast(msg){$('toast').textContent=msg;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400);}
+function toast(msg){$('toast').textContent=String(msg||'');$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400);}
 function statusPill(s){const safe=['pending','paid','delivered','rejected'].includes(s)?s:'pending';return `<span class="status ${safe}">${escapeHtml(safe)}</span>`;}
-function logout(showMessage=true){adminToken='';sessionStorage.removeItem('ts-admin-token');$('dashboardView').classList.add('hidden');$('loginView').classList.remove('hidden');$('adminPassword').value='';if(showMessage)toast('Logged out');}
+function setLoggedOut(showMessage=true){$('dashboardView').classList.add('hidden');$('loginView').classList.remove('hidden');$('adminPassword').value='';if(showMessage)toast('Logged out');}
+async function logout(showMessage=true){try{await fetch(API_BASE_URL+'/api/admin/logout',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:'{}'});}catch{}setLoggedOut(showMessage);}
 async function api(path,{method='GET',body}={}){
   const headers={'Content-Type':'application/json'};
-  if(adminToken) headers.Authorization=`Bearer ${adminToken}`;
-  const res=await fetch(API_BASE_URL+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
+  const res=await fetch(API_BASE_URL+path,{method,headers,credentials:'same-origin',body:body===undefined?undefined:JSON.stringify(body)});
   let data={};try{data=await res.json();}catch{}
-  if(!res.ok){if(res.status===401&&path!=='/api/admin/login')logout(false);throw new Error(data.error||`Request failed (${res.status})`);}return data;
+  if(!res.ok){
+    if(res.status===401&&path!=='/api/admin/login'){setLoggedOut(false);}
+    const err=new Error(data.error||`Request failed (${res.status})`);
+    err.retryAfterSeconds=Number(data.retryAfterSeconds||0);
+    err.attemptsRemaining=data.attemptsRemaining;
+    throw err;
+  }
+  return data;
 }
 
+let loginLockTimer=null;
+function showLoginLock(seconds){
+  clearInterval(loginLockTimer);const btn=$('loginBtn'),input=$('adminPassword');let remaining=Math.max(1,Math.ceil(Number(seconds)||0));
+  btn.disabled=true;input.disabled=true;
+  const tick=()=>{if(remaining<=0){clearInterval(loginLockTimer);btn.disabled=false;input.disabled=false;$('loginError').textContent='You can try logging in again.';return;}const mins=Math.floor(remaining/60),secs=remaining%60;$('loginError').textContent=`Too many failed attempts. Try again in ${mins}:${String(secs).padStart(2,'0')}.`;remaining--;};
+  tick();loginLockTimer=setInterval(tick,1000);
+}
 $('loginForm').addEventListener('submit',async e=>{
-  e.preventDefault(); const password=$('adminPassword').value; if(!password)return;
-  $('loginBtn').disabled=true;$('loginError').textContent='';
-  try{const data=await api('/api/admin/login',{method:'POST',body:{password}});adminToken=data.token;sessionStorage.setItem('ts-admin-token',adminToken);$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');$('adminPassword').value='';await loadAll();}
-  catch(err){$('loginError').textContent=err.message;}finally{$('loginBtn').disabled=false;}
+  e.preventDefault();const password=$('adminPassword').value;if(!password)return;$('loginBtn').disabled=true;$('loginError').textContent='';
+  try{await api('/api/admin/login',{method:'POST',body:{password}});$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');$('adminPassword').value='';await loadAll();}
+  catch(err){if(err.retryAfterSeconds>0)showLoginLock(err.retryAfterSeconds);else $('loginError').textContent=err.message;}
+  finally{if(!$('adminPassword').disabled)$('loginBtn').disabled=false;}
 });
 $('logoutBtn').onclick=()=>logout();
 
@@ -138,21 +155,36 @@ document.querySelectorAll('.tab').forEach(btn=>btn.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));btn.classList.add('active');
   ['orders','products','users','settings'].forEach(name=>$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('hidden',name!==btn.dataset.tab));
 });
-$('orderStatusFilter').onchange=()=>renderOrders();
+$('orderStatusFilter').onchange=async()=>{orderPage=1;await loadOrders();};
 
 async function loadAll(){
   try{
-    const [p,o,u,s]=await Promise.all([api('/api/admin/products'),api('/api/admin/orders'),api('/api/admin/users'),api('/api/admin/settings')]);
-    products=p.products||[];orders=o.orders||[];users=u.users||[];$('upiIdInput').value=s.upiId||'';
-    renderProducts();renderOrders();renderUsers();renderStats();
+    const [p,s,st]=await Promise.all([api('/api/admin/products'),api('/api/admin/settings'),api('/api/admin/stats')]);
+    products=p.products||[];$('upiIdInput').value=s.upiId||'';stats=st||stats;
+    await Promise.all([loadOrders(),loadUsers()]);
+    renderProducts();renderStats();
   }catch(err){toast(err.message);}
 }
-function renderStats(){$('statProducts').textContent=products.length;$('statOrders').textContent=orders.length;$('statPending').textContent=orders.filter(o=>o.status==='pending').length;$('statUsers').textContent=users.length;}
+async function loadOrders(){
+  const status=$('orderStatusFilter').value||'all';
+  const data=await api(`/api/admin/orders?page=${orderPage}&limit=${PAGE_SIZE}&status=${encodeURIComponent(status)}`);
+  orders=data.orders||[];orderPage=Number(data.page||1);orderPages=Number(data.pages||1);renderOrders();renderOrderPager();
+}
+async function loadUsers(){
+  const data=await api(`/api/admin/users?page=${userPage}&limit=${PAGE_SIZE}`);
+  users=data.users||[];userPage=Number(data.page||1);userPages=Number(data.pages||1);renderUsers();renderUserPager();
+}
+function renderStats(){$('statProducts').textContent=Number(stats.products||0);$('statOrders').textContent=Number(stats.orders||0);$('statPending').textContent=Number(stats.pending||0);$('statUsers').textContent=Number(stats.users||0);}
+function renderOrderPager(){$('orderPageInfo').textContent=`Page ${orderPage} of ${orderPages}`;$('orderPrev').disabled=orderPage<=1;$('orderNext').disabled=orderPage>=orderPages;}
+function renderUserPager(){$('userPageInfo').textContent=`Page ${userPage} of ${userPages}`;$('userPrev').disabled=userPage<=1;$('userNext').disabled=userPage>=userPages;}
+$('orderPrev').onclick=async()=>{if(orderPage>1){orderPage--;try{await loadOrders();}catch(err){toast(err.message);}}};
+$('orderNext').onclick=async()=>{if(orderPage<orderPages){orderPage++;try{await loadOrders();}catch(err){toast(err.message);}}};
+$('userPrev').onclick=async()=>{if(userPage>1){userPage--;try{await loadUsers();}catch(err){toast(err.message);}}};
+$('userNext').onclick=async()=>{if(userPage<userPages){userPage++;try{await loadUsers();}catch(err){toast(err.message);}}};
 function renderOrders(){
-  const filter=$('orderStatusFilter').value;const list=filter==='all'?orders:orders.filter(o=>o.status===filter);const rows=$('orderRows');
-  if(!list.length){rows.innerHTML='<tr><td colspan="7" class="muted">No orders found.</td></tr>';return;}
-  rows.innerHTML=list.map(o=>`<tr><td><strong>${escapeHtml(o.id)}</strong><br><span class="small muted">${escapeHtml(dateText(o.createdAt))}</span></td><td>${escapeHtml(o.buyerName||'—')}<br><span class="small muted">${escapeHtml(o.buyerEmail||'—')}</span></td><td>${(o.items||[]).map(i=>`${escapeHtml(i.title)} ×${Number(i.qty)||1}`).join('<br>')}</td><td>${money(o.total)}</td><td>${escapeHtml(o.utr||'—')}</td><td>${statusPill(o.status)}</td><td><div class="actions"><select class="mini" data-status="${escapeHtml(o.id)}">${['pending','paid','delivered','rejected'].map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="mini" data-save-status="${escapeHtml(o.id)}">Save</button></div></td></tr>`).join('');
-  rows.querySelectorAll('[data-save-status]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.saveStatus;const select=rows.querySelector(`[data-status="${CSS.escape(id)}"]`);try{const data=await api(`/api/admin/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:{status:select.value}});const idx=orders.findIndex(x=>x.id===id);if(idx>=0)orders[idx]=data.order;renderOrders();renderStats();toast('Order status updated');}catch(err){toast(err.message);}});
+  const rows=$('orderRows');if(!orders.length){rows.innerHTML='<tr><td colspan="7" class="muted">No orders found.</td></tr>';return;}
+  rows.innerHTML=orders.map(o=>`<tr><td><strong>${escapeHtml(o.id)}</strong><br><span class="small muted">${escapeHtml(dateText(o.createdAt))}</span></td><td>${escapeHtml(o.buyerName||'—')}<br><span class="small muted">${escapeHtml(o.buyerEmail||'—')}</span></td><td>${(o.items||[]).map(i=>`${escapeHtml(i.title)} ×${Number(i.qty)||1}`).join('<br>')}</td><td>${money(o.total)}</td><td>${escapeHtml(o.utr||'—')}</td><td>${statusPill(o.status)}</td><td><div class="actions"><select class="mini" data-status="${escapeHtml(o.id)}">${['pending','paid','delivered','rejected'].map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${s}</option>`).join('')}</select><button class="mini" data-save-status="${escapeHtml(o.id)}">Save</button></div></td></tr>`).join('');
+  rows.querySelectorAll('[data-save-status]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.saveStatus;const select=rows.querySelector(`[data-status="${CSS.escape(id)}"]`);try{const data=await api(`/api/admin/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:{status:select.value}});const idx=orders.findIndex(x=>x.id===id);if(idx>=0)orders[idx]=data.order;stats=await api('/api/admin/stats');renderOrders();renderStats();toast('Order status updated');}catch(err){toast(err.message);}});
 }
 function renderProducts(){
   const rows=$('productRows');if(!products.length){rows.innerHTML='<tr><td colspan="5" class="muted">No products.</td></tr>';return;}
@@ -162,13 +194,12 @@ function renderProducts(){
 function editProduct(id){const p=products.find(x=>x.id===id);if(!p)return;editingProductId=id;$('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});}
 function resetProductForm(){editingProductId=null;$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pType').value='ebook';$('cancelEditBtn').classList.add('hidden');}
 $('cancelEditBtn').onclick=resetProductForm;
-$('saveProductBtn').onclick=async()=>{const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim()};try{if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});const data=await api('/api/admin/products');products=data.products||[];resetProductForm();renderProducts();renderStats();toast('Product saved');}catch(err){toast(err.message);}};
-async function deleteProduct(id){if(!confirm('Delete this product?'))return;try{await api(`/api/admin/products/${encodeURIComponent(id)}`,{method:'DELETE'});products=products.filter(p=>p.id!==id);renderProducts();renderStats();toast('Product deleted');}catch(err){toast(err.message);}}
+$('saveProductBtn').onclick=async()=>{const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim()};try{if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});const data=await api('/api/admin/products');products=data.products||[];stats=await api('/api/admin/stats');resetProductForm();renderProducts();renderStats();toast('Product saved');}catch(err){toast(err.message);}};
+async function deleteProduct(id){if(!confirm('Delete this product?'))return;try{await api(`/api/admin/products/${encodeURIComponent(id)}`,{method:'DELETE'});products=products.filter(p=>p.id!==id);stats=await api('/api/admin/stats');renderProducts();renderStats();toast('Product deleted');}catch(err){toast(err.message);}}
 function renderUsers(){const rows=$('userRows');if(!users.length){rows.innerHTML='<tr><td colspan="6" class="muted">No users.</td></tr>';return;}rows.innerHTML=users.map(u=>`<tr><td><strong>${escapeHtml(u.name||'—')}</strong><br><span class="small muted">${escapeHtml(u.email||'—')}</span></td><td>${escapeHtml(u.provider||'guest')}</td><td>${escapeHtml(dateText(u.createdAt))}</td><td>${escapeHtml(dateText(u.lastSeenAt))}</td><td>${Number(u.orderCount)||0}</td><td>${money(u.totalOrdered)}</td></tr>`).join('');}
 $('saveUpiBtn').onclick=async()=>{const upiId=$('upiIdInput').value.trim();if(!upiId){toast('Enter UPI ID');return;}try{await api('/api/admin/settings',{method:'PUT',body:{upiId}});toast('UPI ID saved');}catch(err){toast(err.message);}};
-$('saveAdminPassBtn').onclick=async()=>{const newPassword=$('newAdminPass').value;if(newPassword.length<10){toast('Use at least 10 characters');return;}try{await api('/api/admin/password',{method:'PUT',body:{newPassword}});$('newAdminPass').value='';toast('Password changed');}catch(err){toast(err.message);}};
+$('saveAdminPassBtn').onclick=async()=>{const newPassword=$('newAdminPass').value;if(newPassword.length<12){toast('Use at least 12 characters');return;}try{await api('/api/admin/password',{method:'PUT',body:{newPassword}});$('newAdminPass').value='';setLoggedOut(false);$('loginError').textContent='Password changed. Sign in again.';}catch(err){toast(err.message);}};
 
-(async()=>{if(!adminToken)return;try{await api('/api/admin/settings');$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');await loadAll();}catch{logout(false);}})();
-</script>
+(async()=>{try{await api('/api/admin/settings');$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');await loadAll();}catch{setLoggedOut(false);}})();</script>
 </body>
 </html>
