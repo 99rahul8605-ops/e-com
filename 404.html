@@ -6,6 +6,7 @@
 <title>Team Secret — Study Notes &amp; E-books</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
@@ -216,6 +217,24 @@
   }
   .toast.show{opacity:1;transform:translate(-50%, 0);}
   footer{border-top:1px solid var(--line);padding:28px 24px;text-align:center;color:var(--muted);font-size:13px;}
+
+  .status-pill{display:inline-flex;align-items:center;padding:4px 9px;border-radius:99px;font-size:12px;font-weight:700;text-transform:capitalize;}
+  .status-pending{background:#FBF3E2;color:#8A5A16;}
+  .status-paid{background:#EEF6F1;color:#2F6D4C;}
+  .status-delivered{background:#EAF1FA;color:#315F91;}
+  .status-rejected{background:#FBEDEA;color:#9E3B2E;}
+  .order-list{display:flex;flex-direction:column;gap:12px;}
+  .order-card{border:1px solid var(--line);border-radius:10px;padding:15px;background:var(--paper);}
+  .order-card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:8px;}
+  .order-meta{font-size:12px;color:var(--muted);}
+  .download-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+  .download-list a{font-size:13px;font-weight:600;color:var(--ink);}
+  .account-info{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:14px;}
+  .table-wrap{overflow-x:auto;width:100%;}
+  .status-select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper-raised);font:inherit;font-size:12px;}
+  .inline-actions{display:flex;gap:8px;align-items:center;min-width:180px;}
+  .mini-btn{border:1px solid var(--line);background:var(--paper-raised);border-radius:6px;padding:6px 9px;font-size:12px;font-weight:600;}
+  .muted-small{font-size:12px;color:var(--muted);}
   .hidden{display:none !important;}
   :focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
   @media (prefers-reduced-motion: reduce){
@@ -244,6 +263,7 @@
     </div>
     <div class="nav-actions">
       <button class="icon-btn" id="accountBtn">Account</button>
+      <button class="icon-btn hidden" id="ordersBtn">My orders</button>
       <button class="icon-btn" id="cartBtn">Cart <span class="badge" id="cartBadge">0</span></button>
       <button class="ghost-link" id="adminLink">Admin</button>
     </div>
@@ -284,7 +304,7 @@
 <div class="chips" id="chips"></div>
 <div class="grid" id="productGrid"><p class="empty-note">Loading catalogue…</p></div>
 
-<footer id="shop">Team Secret — a demo storefront built for digital notes &amp; e-books. Own domain required for live Google sign-in and payments.</footer>
+<footer id="shop">Team Secret — digital notes &amp; e-books. Orders and user data are stored through the Team Secret API.</footer>
 
 <!-- CART DRAWER -->
 <div class="overlay" id="overlay"></div>
@@ -315,6 +335,28 @@
   </div>
 </div>
 
+<!-- ACCOUNT MODAL -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('accountModal')">✕</button>
+    <h2>Your account</h2>
+    <div class="sub">Your order history is tied to this browser session.</div>
+    <div class="account-info" id="accountInfo"></div>
+    <button class="btn btn-primary btn-block" id="accountOrdersBtn">View my orders</button>
+    <button class="btn btn-outline btn-block" style="margin-top:10px;" id="logoutUserBtn">Log out</button>
+  </div>
+</div>
+
+<!-- MY ORDERS MODAL -->
+<div class="modal-overlay" id="ordersModal">
+  <div class="modal" style="max-width:620px;">
+    <button class="modal-close" onclick="closeModal('ordersModal')">✕</button>
+    <h2>My orders</h2>
+    <div class="sub">Track payment verification and download approved purchases.</div>
+    <div id="myOrdersList" class="order-list"><div class="muted-small">Loading…</div></div>
+  </div>
+</div>
+
 <!-- CHECKOUT MODAL -->
 <div class="modal-overlay" id="checkoutModal">
   <div class="modal">
@@ -332,7 +374,7 @@
       </div>
       <div class="field" style="margin-top:14px;"><label>UPI transaction / UTR number</label><input id="coUtr" placeholder="e.g. 234567891234"></div>
       <button class="btn btn-amber btn-block" id="payBtn">I've paid — submit order</button>
-      <div class="setup-note">Payments are verified manually. Once we confirm your payment, your download link will be emailed to you.</div>
+      <div class="setup-note">Payments are verified manually. After approval, download links appear automatically in My Orders.</div>
     </div>
     <div id="checkoutSuccess" class="hidden"></div>
   </div>
@@ -343,7 +385,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('adminLoginModal')">✕</button>
     <h2>Admin sign in</h2>
-    <div class="sub">Default password is <strong>admin123</strong> — change it after logging in.</div>
+    <div class="sub">Admin password is verified securely by the backend.</div>
     <div class="field"><label>Password</label><input type="password" id="adminPassword"></div>
     <button class="btn btn-primary btn-block" id="adminLoginBtn">Sign in</button>
   </div>
@@ -361,6 +403,7 @@
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="products">Products</button>
     <button class="admin-tab" data-tab="orders">Orders</button>
+    <button class="admin-tab" data-tab="users">Users</button>
     <button class="admin-tab" data-tab="settings">Settings</button>
   </div>
 
@@ -395,10 +438,21 @@
   </div>
 
   <div id="tabOrders" class="hidden">
-    <table>
-      <thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>UTR</th><th>Status</th><th>Action</th></tr></thead>
-      <tbody id="adminOrderRows"></tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>UTR</th><th>Status</th><th>Update</th></tr></thead>
+        <tbody id="adminOrderRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tabUsers" class="hidden">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>User</th><th>Provider</th><th>Joined</th><th>Last seen</th><th>Orders</th><th>Ordered value</th></tr></thead>
+        <tbody id="adminUserRows"></tbody>
+      </table>
+    </div>
   </div>
 
   <div id="tabSettings" class="hidden">
@@ -415,10 +469,10 @@
     <div class="admin-form">
       <h3 style="font-size:16px;margin-bottom:10px;">Setup notes</h3>
       <p style="font-size:14px;color:var(--muted);line-height:1.7;">
-        1. <strong>Real Google sign-in:</strong> create an OAuth Client ID in Google Cloud Console → Credentials, add your live domain as an authorized origin, then replace <code>GOOGLE_CLIENT_ID</code> near the top of the script with it.<br><br>
-        2. <strong>Payments:</strong> customers pay via your UPI ID and submit their transaction/UTR number. Orders sit as "Pending" in the Orders tab until you verify the payment in your bank/UPI app, then click "Mark as paid" to reveal the download links so you can email them to the buyer. Set your UPI ID above first.<br><br>
-        3. <strong>File delivery:</strong> replace each product's download link with a real file URL (Google Drive share link, S3, etc.) — ideally one that expires or is unique per order.<br><br>
-        4. <strong>Hosting:</strong> this file is self-contained. Upload it as-is to any static host (Netlify, Vercel, GitHub Pages) to go live.
+        1. <strong>Backend:</strong> deploy the <code>backend</code> folder to Render/Railway and connect MongoDB Atlas through environment variables.<br><br>
+        2. <strong>Frontend:</strong> set the backend URL and Google Client ID in <code>config.js</code>, then publish the root files on GitHub Pages.<br><br>
+        3. <strong>Orders:</strong> users submit UTR numbers. Update status here to Pending, Paid, Delivered or Rejected. Paid/Delivered orders automatically reveal download links inside the user's My Orders page.<br><br>
+        4. <strong>Security:</strong> MongoDB URI, admin password and JWT secret stay only in backend environment variables. Never put them in GitHub Pages files.
       </p>
     </div>
   </div>
@@ -427,465 +481,352 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com";
+const APP_CONFIG = window.TEAM_SECRET_CONFIG || {};
+const API_BASE_URL = String(APP_CONFIG.API_BASE_URL || '').replace(/\/$/, '');
+const GOOGLE_CLIENT_ID = APP_CONFIG.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 
-const CATEGORY_LABELS = {ebook:"E-book", handwritten:"Handwritten notes", guide:"Study guide", template:"Template", website:"Website template"};
-const COVER_COLORS = ["#1B2333","#6FA98D","#C7842A","#5B6472","#8B6BAE"];
-
+const CATEGORY_LABELS = {ebook:'E-book', handwritten:'Handwritten notes', guide:'Study guide', template:'Template', website:'Website template'};
+const COVER_COLORS = ['#1B2333','#6FA98D','#C7842A','#5B6472','#8B6BAE'];
 const DEFAULT_PRODUCTS = [
-  {id:"p1", title:"Class 12 Physics — Full Notes", subject:"Physics", type:"handwritten", price:149, description:"Chapter-wise handwritten notes covering the entire CBSE Class 12 Physics syllabus.", file:"#"},
-  {id:"p2", title:"Organic Chemistry Crash Guide", subject:"Chemistry", type:"guide", price:199, description:"A compact revision guide for organic chemistry reactions and mechanisms.", file:"#"},
-  {id:"p3", title:"Data Structures E-book", subject:"Computer Science", type:"ebook", price:249, description:"Beginner-friendly e-book on arrays, trees, graphs and common interview problems.", file:"#"},
-  {id:"p4", title:"UPSC Essay Answer Templates", subject:"UPSC", type:"template", price:99, description:"Ready-to-adapt structures for scoring well in the essay paper.", file:"#"}
+  {id:'p1', title:'Class 12 Physics — Full Notes', subject:'Physics', type:'handwritten', price:149, description:'Chapter-wise handwritten notes covering the entire CBSE Class 12 Physics syllabus.'},
+  {id:'p2', title:'Organic Chemistry Crash Guide', subject:'Chemistry', type:'guide', price:199, description:'A compact revision guide for organic chemistry reactions and mechanisms.'},
+  {id:'p3', title:'Data Structures E-book', subject:'Computer Science', type:'ebook', price:249, description:'Beginner-friendly e-book on arrays, trees, graphs and common interview problems.'},
+  {id:'p4', title:'UPSC Essay Answer Templates', subject:'UPSC', type:'template', price:99, description:'Ready-to-adapt structures for scoring well in the essay paper.'}
 ];
 
 let products = [];
 let cart = [];
 let currentUser = null;
-let isAdmin = false;
+let userToken = localStorage.getItem('ts-user-token') || '';
+let adminToken = sessionStorage.getItem('ts-admin-token') || '';
+let isAdmin = !!adminToken;
 let editingProductId = null;
-let activeTab = "products";
-let activeCategory = "all";
+let activeTab = 'products';
+let activeCategory = 'all';
+let upiId = '';
 
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2200);
+  setTimeout(()=>t.classList.remove('show'), 2600);
 }
-function money(n){ return "₹" + Number(n).toLocaleString('en-IN'); }
+function money(n){ return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-
-async function safeGet(key, shared){
-  try{ const r = await window.storage.get(key, shared); return r ? r.value : null; }
-  catch(e){ return null; }
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function safeUrl(url){
+  try{
+    const u = new URL(String(url || ''), window.location.href);
+    return ['http:','https:'].includes(u.protocol) ? u.href : '#';
+  }catch{ return '#'; }
 }
-async function safeSet(key, value, shared){
-  try{ await window.storage.set(key, value, shared); }
-  catch(e){ console.error('storage set failed', e); }
+function dateText(value){
+  if(!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'});
+}
+function statusPill(status){
+  const s = ['pending','paid','delivered','rejected'].includes(status) ? status : 'pending';
+  return `<span class="status-pill status-${s}">${escapeHtml(s)}</span>`;
+}
+function backendConfigured(){ return API_BASE_URL && !API_BASE_URL.includes('YOUR-RENDER-BACKEND'); }
+
+async function api(path, {method='GET', body, auth='none'}={}){
+  if(!backendConfigured()) throw new Error('Backend URL is not configured in config.js');
+  const headers = {'Content-Type':'application/json'};
+  if(auth==='user' && userToken) headers.Authorization = `Bearer ${userToken}`;
+  if(auth==='admin' && adminToken) headers.Authorization = `Bearer ${adminToken}`;
+  const res = await fetch(API_BASE_URL + path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
+  let data = {};
+  try{ data = await res.json(); }catch{}
+  if(!res.ok){
+    if(res.status===401 && auth==='admin'){
+      adminToken=''; isAdmin=false; sessionStorage.removeItem('ts-admin-token');
+    }
+    if(res.status===401 && auth==='user') logoutUser(false);
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  return data;
 }
 
 async function loadProducts(){
-  const raw = await safeGet('products', true);
-  if(raw){ products = JSON.parse(raw); }
-  else { products = DEFAULT_PRODUCTS; await safeSet('products', JSON.stringify(products), true); }
-  renderChips();
-  renderGrid();
-  renderAdminProducts();
+  try{
+    const data = await api('/api/products');
+    products = data.products || [];
+  }catch(err){
+    products = DEFAULT_PRODUCTS;
+    if(backendConfigured()) toast('Could not reach backend. Showing sample catalogue.');
+  }
+  renderChips(); renderGrid(); renderAdminProducts();
 }
-async function saveProducts(){ await safeSet('products', JSON.stringify(products), true); }
-
-async function loadCart(){
-  const raw = await safeGet('cart', false);
-  cart = raw ? JSON.parse(raw) : [];
+function loadCart(){
+  try{ cart = JSON.parse(localStorage.getItem('ts-cart') || '[]'); }catch{ cart=[]; }
   renderCart();
 }
-async function saveCart(){ await safeSet('cart', JSON.stringify(cart), false); renderCart(); }
-
-async function loadUser(){
-  const raw = await safeGet('session-user', false);
-  currentUser = raw ? JSON.parse(raw) : null;
+function saveCart(){ localStorage.setItem('ts-cart', JSON.stringify(cart)); renderCart(); }
+function loadUser(){
+  try{ currentUser = JSON.parse(localStorage.getItem('ts-user') || 'null'); }catch{ currentUser=null; }
+  if(!userToken) currentUser=null;
   updateAccountBtn();
 }
-async function saveUser(u){ currentUser = u; await safeSet('session-user', JSON.stringify(u), false); updateAccountBtn(); }
+function saveUserSession(user, token){
+  currentUser=user; userToken=token;
+  localStorage.setItem('ts-user', JSON.stringify(user));
+  localStorage.setItem('ts-user-token', token);
+  updateAccountBtn();
+}
+function logoutUser(showToast=true){
+  currentUser=null; userToken='';
+  localStorage.removeItem('ts-user'); localStorage.removeItem('ts-user-token');
+  updateAccountBtn(); closeModal('accountModal'); closeModal('ordersModal');
+  if(showToast) toast('Logged out');
+}
 function updateAccountBtn(){
   document.getElementById('accountBtn').textContent = currentUser ? currentUser.name.split(' ')[0] : 'Account';
+  document.getElementById('ordersBtn').classList.toggle('hidden', !currentUser);
 }
 
 function renderChips(){
-  const cats = ["all", ...new Set(products.map(p=>p.type))];
+  const cats = ['all', ...new Set(products.map(p=>p.type))];
   const wrap = document.getElementById('chips');
-  wrap.innerHTML = cats.map(c=>{
-    const label = c==="all" ? "All" : (CATEGORY_LABELS[c]||c);
-    return `<button class="chip ${c===activeCategory?'active':''}" data-cat="${c}">${label}</button>`;
-  }).join('');
-  wrap.querySelectorAll('.chip').forEach(btn=>{
-    btn.onclick = ()=>{ activeCategory = btn.dataset.cat; renderChips(); renderGrid(); };
-  });
+  wrap.innerHTML = cats.map(c=>`<button class="chip ${c===activeCategory?'active':''}" data-cat="${escapeHtml(c)}">${escapeHtml(c==='all'?'All':(CATEGORY_LABELS[c]||c))}</button>`).join('');
+  wrap.querySelectorAll('.chip').forEach(btn=>btn.onclick=()=>{activeCategory=btn.dataset.cat;renderChips();renderGrid();});
 }
-
 function renderGrid(){
-  const grid = document.getElementById('productGrid');
-  const list = activeCategory==="all" ? products : products.filter(p=>p.type===activeCategory);
-  if(!list.length){ grid.innerHTML = '<p class="empty-note">No products here yet.</p>'; return; }
-  grid.innerHTML = list.map((p,i)=>`
+  const grid=document.getElementById('productGrid');
+  const list=activeCategory==='all'?products:products.filter(p=>p.type===activeCategory);
+  if(!list.length){grid.innerHTML='<p class="empty-note">No products here yet.</p>';return;}
+  grid.innerHTML=list.map((p,i)=>`
     <div class="card">
-      <div class="cover" style="background:${COVER_COLORS[i % COVER_COLORS.length]}">
-        <span class="tag">${CATEGORY_LABELS[p.type]||p.type}</span>
-      </div>
+      <div class="cover" style="background:${COVER_COLORS[i % COVER_COLORS.length]}"><span class="tag">${escapeHtml(CATEGORY_LABELS[p.type]||p.type)}</span></div>
       <div class="card-body">
-        <h3>${escapeHtml(p.title)}</h3>
-        <div class="subject">${escapeHtml(p.subject||'')}</div>
+        <h3>${escapeHtml(p.title)}</h3><div class="subject">${escapeHtml(p.subject||'')}</div>
         <p style="font-size:13px;color:var(--muted);margin:4px 0 0;">${escapeHtml((p.description||'').slice(0,80))}${(p.description||'').length>80?'…':''}</p>
-        <div class="card-foot">
-          <span class="price">${money(p.price)}</span>
-          <button class="add-btn" data-id="${p.id}"><span aria-hidden="true">+</span> Add to cart</button>
-        </div>
+        <div class="card-foot"><span class="price">${money(p.price)}</span><button class="add-btn" data-id="${escapeHtml(p.id)}"><span aria-hidden="true">+</span> Add to cart</button></div>
       </div>
-    </div>
-  `).join('');
-  grid.querySelectorAll('.add-btn').forEach(btn=>{
-    btn.onclick = ()=> addToCart(btn.dataset.id);
-  });
+    </div>`).join('');
+  grid.querySelectorAll('.add-btn').forEach(btn=>btn.onclick=()=>addToCart(btn.dataset.id));
 }
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function addToCart(id){
+  const existing=cart.find(c=>c.productId===id);
+  if(existing) existing.qty+=1; else cart.push({productId:id,qty:1});
+  saveCart(); toast('Added to cart');
 }
-
-async function addToCart(id){
-  const existing = cart.find(c=>c.productId===id);
-  if(existing){ existing.qty += 1; } else { cart.push({productId:id, qty:1}); }
-  await saveCart();
-  toast('Added to cart');
+function changeQty(id,delta){
+  const item=cart.find(c=>c.productId===id); if(!item)return;
+  item.qty+=delta; if(item.qty<=0) cart=cart.filter(c=>c.productId!==id); saveCart();
 }
-async function changeQty(id, delta){
-  const item = cart.find(c=>c.productId===id);
-  if(!item) return;
-  item.qty += delta;
-  if(item.qty<=0){ cart = cart.filter(c=>c.productId!==id); }
-  await saveCart();
-}
-async function removeFromCart(id){
-  cart = cart.filter(c=>c.productId!==id);
-  await saveCart();
-}
-
-function cartTotal(){
-  return cart.reduce((sum,c)=>{
-    const p = products.find(p=>p.id===c.productId);
-    return sum + (p ? p.price*c.qty : 0);
-  },0);
-}
-
+function removeFromCart(id){cart=cart.filter(c=>c.productId!==id);saveCart();}
+function cartTotal(){return cart.reduce((sum,c)=>{const p=products.find(p=>p.id===c.productId);return sum+(p?p.price*c.qty:0);},0);}
 function renderCart(){
-  const body = document.getElementById('cartBody');
-  const count = cart.reduce((n,c)=>n+c.qty,0);
-  document.getElementById('cartBadge').textContent = count;
-  if(!cart.length){ body.innerHTML = '<p style="color:var(--muted);">Your cart is empty.</p>'; }
-  else {
-    body.innerHTML = cart.map(c=>{
-      const p = products.find(p=>p.id===c.productId);
-      if(!p) return '';
-      return `
-        <div class="cart-item">
-          <div class="swatch" style="background:${COVER_COLORS[products.indexOf(p)%COVER_COLORS.length]}"></div>
-          <div class="cart-item-info">
-            <h4>${escapeHtml(p.title)}</h4>
-            <div style="font-size:13px;color:var(--muted);">${money(p.price)}</div>
-            <div class="qty-row">
-              <button class="qty-btn" data-a="dec" data-id="${p.id}">−</button>
-              <span>${c.qty}</span>
-              <button class="qty-btn" data-a="inc" data-id="${p.id}">+</button>
-              <button class="remove-link" data-id="${p.id}" style="margin-left:10px;">Remove</button>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-    body.querySelectorAll('.qty-btn').forEach(b=>{
-      b.onclick = ()=> changeQty(b.dataset.id, b.dataset.a==='inc'?1:-1);
-    });
-    body.querySelectorAll('.remove-link').forEach(b=>{
-      b.onclick = ()=> removeFromCart(b.dataset.id);
-    });
+  const body=document.getElementById('cartBody');
+  const count=cart.reduce((n,c)=>n+c.qty,0); document.getElementById('cartBadge').textContent=count;
+  if(!cart.length){body.innerHTML='<p style="color:var(--muted);">Your cart is empty.</p>';}
+  else{
+    body.innerHTML=cart.map(c=>{const p=products.find(p=>p.id===c.productId);if(!p)return'';return `
+      <div class="cart-item"><div class="swatch" style="background:${COVER_COLORS[Math.max(0,products.indexOf(p))%COVER_COLORS.length]}"></div>
+      <div class="cart-item-info"><h4>${escapeHtml(p.title)}</h4><div style="font-size:13px;color:var(--muted);">${money(p.price)}</div>
+      <div class="qty-row"><button class="qty-btn" data-a="dec" data-id="${escapeHtml(p.id)}">−</button><span>${c.qty}</span><button class="qty-btn" data-a="inc" data-id="${escapeHtml(p.id)}">+</button><button class="remove-link" data-id="${escapeHtml(p.id)}" style="margin-left:10px;">Remove</button></div></div></div>`;}).join('');
+    body.querySelectorAll('.qty-btn').forEach(b=>b.onclick=()=>changeQty(b.dataset.id,b.dataset.a==='inc'?1:-1));
+    body.querySelectorAll('.remove-link').forEach(b=>b.onclick=()=>removeFromCart(b.dataset.id));
   }
-  document.getElementById('cartSubtotal').textContent = money(cartTotal());
+  document.getElementById('cartSubtotal').textContent=money(cartTotal());
 }
 
-// Cart drawer open/close
-document.getElementById('cartBtn').onclick = ()=>{
-  document.getElementById('cartDrawer').classList.add('open');
-  document.getElementById('overlay').classList.add('open');
-};
-function closeDrawer(){
-  document.getElementById('cartDrawer').classList.remove('open');
-  document.getElementById('overlay').classList.remove('open');
-}
-document.getElementById('closeCart').onclick = closeDrawer;
-document.getElementById('overlay').onclick = closeDrawer;
+// Cart drawer
+document.getElementById('cartBtn').onclick=()=>{document.getElementById('cartDrawer').classList.add('open');document.getElementById('overlay').classList.add('open');};
+function closeDrawer(){document.getElementById('cartDrawer').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+document.getElementById('closeCart').onclick=closeDrawer; document.getElementById('overlay').onclick=closeDrawer;
 
-// Login modal
-document.getElementById('accountBtn').onclick = ()=>{
-  if(currentUser){ toast('Signed in as ' + currentUser.name); return; }
-  openModal('loginModal');
-  renderGoogleButton();
+// User account / login
+document.getElementById('accountBtn').onclick=()=>{
+  if(!currentUser){openModal('loginModal');renderGoogleButton();return;}
+  document.getElementById('accountInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br><span class="muted-small">${escapeHtml(currentUser.email)} · ${escapeHtml(currentUser.provider||'guest')}</span>`;
+  openModal('accountModal');
 };
-document.getElementById('guestLoginBtn').onclick = async ()=>{
-  const name = document.getElementById('guestName').value.trim();
-  const email = document.getElementById('guestEmail').value.trim();
-  if(!name || !email){ toast('Enter name and email'); return; }
-  await saveUser({name, email, provider:'guest'});
-  closeModal('loginModal');
-  toast('Signed in as ' + name);
-};
+document.getElementById('ordersBtn').onclick=openMyOrders;
+document.getElementById('accountOrdersBtn').onclick=()=>{closeModal('accountModal');openMyOrders();};
+document.getElementById('logoutUserBtn').onclick=()=>logoutUser(true);
 
+document.getElementById('guestLoginBtn').onclick=async()=>{
+  const name=document.getElementById('guestName').value.trim();
+  const email=document.getElementById('guestEmail').value.trim();
+  if(!name||!email){toast('Enter name and email');return;}
+  try{
+    const data=await api('/api/users/guest',{method:'POST',body:{name,email,userToken}});
+    saveUserSession(data.user,data.userToken); closeModal('loginModal'); toast('Signed in as '+data.user.name);
+  }catch(err){toast(err.message);}
+};
 function renderGoogleButton(){
-  const slot = document.getElementById('gsiSlot');
-  slot.innerHTML = '';
+  const slot=document.getElementById('gsiSlot'); slot.innerHTML='';
   try{
-    if(window.google && google.accounts && GOOGLE_CLIENT_ID.indexOf('YOUR_GOOGLE_CLIENT_ID')===-1){
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential
-      });
-      google.accounts.id.renderButton(slot, {theme:'outline', size:'large', width:320});
-    } else {
-      slot.innerHTML = '<button class="btn btn-outline btn-block" disabled>Sign in with Google (needs setup)</button>';
-    }
-  }catch(e){
-    slot.innerHTML = '<button class="btn btn-outline btn-block" disabled>Sign in with Google (needs setup)</button>';
-  }
+    if(window.google&&google.accounts&&GOOGLE_CLIENT_ID&&!GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE_CLIENT_ID')){
+      google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogleCredential});
+      google.accounts.id.renderButton(slot,{theme:'outline',size:'large',width:320});
+    }else slot.innerHTML='<button class="btn btn-outline btn-block" disabled>Sign in with Google (needs setup)</button>';
+  }catch{slot.innerHTML='<button class="btn btn-outline btn-block" disabled>Sign in with Google (needs setup)</button>';}
 }
-function handleGoogleCredential(resp){
+async function handleGoogleCredential(resp){
   try{
-    const payload = JSON.parse(atob(resp.credential.split('.')[1]));
-    saveUser({name:payload.name, email:payload.email, provider:'google'});
-    closeModal('loginModal');
-    toast('Signed in as ' + payload.name);
-  }catch(e){ toast('Google sign-in failed'); }
+    const data=await api('/api/auth/google',{method:'POST',body:{credential:resp.credential}});
+    saveUserSession(data.user,data.userToken); closeModal('loginModal'); toast('Signed in as '+data.user.name);
+  }catch(err){toast(err.message);}
+}
+async function openMyOrders(){
+  if(!currentUser||!userToken){openModal('loginModal');return;}
+  openModal('ordersModal');
+  const list=document.getElementById('myOrdersList'); list.innerHTML='<div class="muted-small">Loading…</div>';
+  try{
+    const data=await api('/api/orders/me',{auth:'user'});
+    renderMyOrders(data.orders||[]);
+  }catch(err){list.innerHTML=`<div class="setup-note">${escapeHtml(err.message)}</div>`;}
+}
+function renderMyOrders(orders){
+  const list=document.getElementById('myOrdersList');
+  if(!orders.length){list.innerHTML='<div class="muted-small">You have no orders yet.</div>';return;}
+  list.innerHTML=orders.map(o=>{
+    const downloads=(['paid','delivered'].includes(o.status)?(o.items||[]).filter(it=>it.file):[]);
+    return `<div class="order-card">
+      <div class="order-card-head"><div><strong>${escapeHtml(o.id)}</strong><div class="order-meta">${escapeHtml(dateText(o.createdAt))}</div></div>${statusPill(o.status)}</div>
+      <div style="font-size:13px;">${(o.items||[]).map(it=>`${escapeHtml(it.title)} ×${Number(it.qty)||1}`).join('<br>')}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-weight:600;"><span>Total</span><span>${money(o.total)}</span></div>
+      <div class="order-meta" style="margin-top:5px;">UTR: ${escapeHtml(o.utr||'—')}</div>
+      ${downloads.length?`<div class="download-list"><strong style="font-size:13px;">Downloads</strong>${downloads.map(it=>`<a href="${escapeHtml(safeUrl(it.file))}" target="_blank" rel="noopener">Download ${escapeHtml(it.title)}</a>`).join('')}</div>`:''}
+      ${o.status==='pending'?'<div class="muted-small" style="margin-top:9px;">Payment verification pending.</div>':''}
+      ${o.status==='rejected'?'<div class="muted-small" style="margin-top:9px;color:var(--danger);">Payment/order was rejected. Contact support if this looks wrong.</div>':''}
+    </div>`;
+  }).join('');
 }
 
 // Checkout
-let upiId = '';
-document.getElementById('checkoutBtn').onclick = async ()=>{
-  if(!cart.length){ toast('Your cart is empty'); return; }
+document.getElementById('checkoutBtn').onclick=async()=>{
+  if(!cart.length){toast('Your cart is empty');return;}
+  if(!currentUser||!userToken){closeDrawer();openModal('loginModal');renderGoogleButton();toast('Sign in before checkout');return;}
+  if(!backendConfigured()){toast('Backend URL is not configured');return;}
   closeDrawer();
-  document.getElementById('checkoutForm').classList.remove('hidden');
-  document.getElementById('checkoutSuccess').classList.add('hidden');
-  document.getElementById('checkoutSuccess').innerHTML = '';
-  document.getElementById('checkoutSummary').textContent = cart.reduce((n,c)=>n+c.qty,0) + ' item(s) in cart';
-  const amount = cartTotal();
-  document.getElementById('payAmount').textContent = amount;
-  document.getElementById('coUtr').value = '';
-  if(currentUser){
-    document.getElementById('coName').value = currentUser.name;
-    document.getElementById('coEmail').value = currentUser.email;
-  }
-  upiId = await safeGet('upi-id', true) || '';
-  const upiBox = document.getElementById('upiPayBox');
+  document.getElementById('checkoutForm').classList.remove('hidden'); document.getElementById('checkoutSuccess').classList.add('hidden');
+  document.getElementById('checkoutSuccess').innerHTML=''; document.getElementById('checkoutSummary').textContent=cart.reduce((n,c)=>n+c.qty,0)+' item(s) in cart';
+  const amount=cartTotal(); document.getElementById('payAmount').textContent=amount; document.getElementById('coUtr').value='';
+  document.getElementById('coName').value=currentUser.name; document.getElementById('coEmail').value=currentUser.email;
+  document.getElementById('coName').readOnly=true; document.getElementById('coEmail').readOnly=true;
+  try{const data=await api('/api/settings/public');upiId=data.upiId||'';}catch{upiId='';}
+  const upiBox=document.getElementById('upiPayBox');
   if(upiId){
-    document.getElementById('upiIdDisplay').textContent = upiId;
-    const link = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('Team Secret')}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order payment')}`;
-    document.getElementById('upiPayLink').href = link;
+    document.getElementById('upiIdDisplay').textContent=upiId;
+    document.getElementById('upiPayLink').href=`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('Team Secret')}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order payment')}`;
     upiBox.classList.remove('hidden');
-  } else {
-    upiBox.classList.add('hidden');
-  }
+  }else upiBox.classList.add('hidden');
   openModal('checkoutModal');
 };
-
-document.getElementById('payBtn').onclick = async ()=>{
-  const name = document.getElementById('coName').value.trim();
-  const email = document.getElementById('coEmail').value.trim();
-  const utr = document.getElementById('coUtr').value.trim();
-  if(!name || !email){ toast('Enter name and email'); return; }
-  if(!utr){ toast('Enter your UPI transaction / UTR number'); return; }
-  const items = cart.map(c=>{
-    const p = products.find(p=>p.id===c.productId);
-    return {title:p.title, qty:c.qty, price:p.price, file:p.file};
-  });
-  const order = {
-    id: 'ORD' + Date.now(),
-    buyerName:name, buyerEmail:email, utr,
-    items, total: cartTotal(),
-    date: new Date().toISOString(),
-    status:'pending'
-  };
-  const rawOrders = await safeGet('orders', true);
-  const orders = rawOrders ? JSON.parse(rawOrders) : [];
-  orders.unshift(order);
-  await safeSet('orders', JSON.stringify(orders), true);
-
-  cart = [];
-  await saveCart();
-
-  document.getElementById('checkoutForm').classList.add('hidden');
-  const box = document.getElementById('checkoutSuccess');
-  box.classList.remove('hidden');
-  box.innerHTML = `
-    <div class="success-box">
-      <strong>Order received.</strong><br>
-      We're verifying your payment (UTR: ${escapeHtml(utr)}). Your download link will be emailed to <strong>${escapeHtml(email)}</strong> once confirmed — usually within a few hours.
-    </div>
-    <button class="btn btn-outline btn-block" style="margin-top:14px;" onclick="closeModal('checkoutModal')">Done</button>
-  `;
-  renderAdminOrders();
-  toast('Order submitted for verification');
+document.getElementById('payBtn').onclick=async()=>{
+  const utr=document.getElementById('coUtr').value.trim(); if(!utr){toast('Enter your UPI transaction / UTR number');return;}
+  const btn=document.getElementById('payBtn'); btn.disabled=true;
+  try{
+    const data=await api('/api/orders',{method:'POST',auth:'user',body:{utr,items:cart.map(c=>({productId:c.productId,qty:c.qty}))}});
+    cart=[]; saveCart(); document.getElementById('checkoutForm').classList.add('hidden');
+    const box=document.getElementById('checkoutSuccess'); box.classList.remove('hidden');
+    box.innerHTML=`<div class="success-box"><strong>Order received: ${escapeHtml(data.order.id)}</strong><br>Payment verification is pending. Check <strong>My orders</strong> for live status and download links after approval.</div><button class="btn btn-primary btn-block" style="margin-top:14px;" id="successOrdersBtn">View my orders</button><button class="btn btn-outline btn-block" style="margin-top:10px;" onclick="closeModal('checkoutModal')">Done</button>`;
+    document.getElementById('successOrdersBtn').onclick=()=>{closeModal('checkoutModal');openMyOrders();};
+    toast('Order submitted for verification');
+  }catch(err){toast(err.message);}finally{btn.disabled=false;}
 };
 
-// ---- ADMIN ----
-document.getElementById('adminLink').onclick = ()=>{
-  if(isAdmin){ showAdminShell(); } else { openModal('adminLoginModal'); }
+// Admin
+document.getElementById('adminLink').onclick=()=>{if(isAdmin)showAdminShell();else openModal('adminLoginModal');};
+document.getElementById('adminLoginBtn').onclick=async()=>{
+  const password=document.getElementById('adminPassword').value; if(!password){toast('Enter admin password');return;}
+  try{
+    const data=await api('/api/admin/login',{method:'POST',body:{password}}); adminToken=data.token; isAdmin=true;
+    sessionStorage.setItem('ts-admin-token',adminToken); document.getElementById('adminPassword').value=''; closeModal('adminLoginModal'); await showAdminShell(); toast('Admin signed in');
+  }catch(err){toast(err.message);}
 };
-document.getElementById('adminLoginBtn').onclick = async ()=>{
-  const pass = document.getElementById('adminPassword').value;
-  const stored = await safeGet('admin-password', true) || 'admin123';
-  if(pass === stored){
-    isAdmin = true;
-    closeModal('adminLoginModal');
-    showAdminShell();
-  } else {
-    toast('Wrong password');
-  }
-};
-document.getElementById('adminLogoutBtn').onclick = ()=>{
-  isAdmin = false;
-  document.getElementById('adminShell').classList.add('hidden');
-};
-document.getElementById('backToStoreBtn').onclick = ()=>{
-  document.getElementById('adminShell').classList.add('hidden');
-};
-function showAdminShell(){
-  document.getElementById('adminShell').classList.remove('hidden');
-  document.getElementById('adminShell').scrollIntoView({behavior:'smooth'});
-  renderAdminProducts();
-  renderAdminOrders();
-  loadUpiSetting();
+document.getElementById('adminLogoutBtn').onclick=()=>{adminToken='';isAdmin=false;sessionStorage.removeItem('ts-admin-token');document.getElementById('adminShell').classList.add('hidden');toast('Admin logged out');};
+document.getElementById('backToStoreBtn').onclick=()=>document.getElementById('adminShell').classList.add('hidden');
+async function showAdminShell(){
+  document.getElementById('adminShell').classList.remove('hidden'); document.getElementById('adminShell').scrollIntoView({behavior:'smooth'});
+  await Promise.allSettled([loadAdminProducts(),renderAdminOrders(),renderAdminUsers(),loadUpiSetting()]);
 }
-
-document.querySelectorAll('.admin-tab').forEach(tab=>{
-  tab.onclick = ()=>{
-    document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    activeTab = tab.dataset.tab;
-    document.getElementById('tabProducts').classList.toggle('hidden', activeTab!=='products');
-    document.getElementById('tabOrders').classList.toggle('hidden', activeTab!=='orders');
-    document.getElementById('tabSettings').classList.toggle('hidden', activeTab!=='settings');
-  };
+document.querySelectorAll('.admin-tab').forEach(tab=>tab.onclick=()=>{
+  document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); activeTab=tab.dataset.tab;
+  document.getElementById('tabProducts').classList.toggle('hidden',activeTab!=='products');
+  document.getElementById('tabOrders').classList.toggle('hidden',activeTab!=='orders');
+  document.getElementById('tabUsers').classList.toggle('hidden',activeTab!=='users');
+  document.getElementById('tabSettings').classList.toggle('hidden',activeTab!=='settings');
+  if(activeTab==='orders')renderAdminOrders(); if(activeTab==='users')renderAdminUsers();
 });
-
+async function loadAdminProducts(){
+  if(!isAdmin)return;
+  try{const data=await api('/api/admin/products',{auth:'admin'});products=data.products||[];renderAdminProducts();renderChips();renderGrid();}catch(err){toast(err.message);}
+}
 function renderAdminProducts(){
-  const rows = document.getElementById('adminProductRows');
-  rows.innerHTML = products.map(p=>`
-    <tr>
-      <td>${escapeHtml(p.title)}</td>
-      <td>${CATEGORY_LABELS[p.type]||p.type}</td>
-      <td>${money(p.price)}</td>
-      <td class="row-actions">
-        <button class="edit" data-id="${p.id}">Edit</button>
-        <button class="del" data-id="${p.id}">Delete</button>
-      </td>
-    </tr>
-  `).join('');
-  rows.querySelectorAll('.edit').forEach(b=> b.onclick = ()=> startEdit(b.dataset.id));
-  rows.querySelectorAll('.del').forEach(b=> b.onclick = ()=> deleteProduct(b.dataset.id));
+  const rows=document.getElementById('adminProductRows'); if(!rows)return;
+  if(!products.length){rows.innerHTML='<tr><td colspan="4" class="muted-small">No products.</td></tr>';return;}
+  rows.innerHTML=products.map(p=>`<tr><td>${escapeHtml(p.title)}</td><td>${escapeHtml(CATEGORY_LABELS[p.type]||p.type)}</td><td>${money(p.price)}</td><td class="row-actions"><button class="edit" data-id="${escapeHtml(p.id)}">Edit</button><button class="del" data-id="${escapeHtml(p.id)}">Delete</button></td></tr>`).join('');
+  rows.querySelectorAll('.edit').forEach(b=>b.onclick=()=>startEdit(b.dataset.id)); rows.querySelectorAll('.del').forEach(b=>b.onclick=()=>deleteProduct(b.dataset.id));
 }
 function startEdit(id){
-  const p = products.find(p=>p.id===id);
-  if(!p) return;
-  editingProductId = id;
-  document.getElementById('formTitle').textContent = 'Edit product';
-  document.getElementById('pTitle').value = p.title;
-  document.getElementById('pSubject').value = p.subject||'';
-  document.getElementById('pType').value = p.type;
-  document.getElementById('pPrice').value = p.price;
-  document.getElementById('pDesc').value = p.description||'';
-  document.getElementById('pFile').value = p.file||'';
-  document.getElementById('cancelEditBtn').classList.remove('hidden');
-  document.querySelector('.admin-form').scrollIntoView({behavior:'smooth'});
+  const p=products.find(p=>p.id===id);if(!p)return;editingProductId=id;document.getElementById('formTitle').textContent='Edit product';
+  document.getElementById('pTitle').value=p.title;document.getElementById('pSubject').value=p.subject||'';document.getElementById('pType').value=p.type;document.getElementById('pPrice').value=p.price;document.getElementById('pDesc').value=p.description||'';document.getElementById('pFile').value=p.file||'';document.getElementById('cancelEditBtn').classList.remove('hidden');document.querySelector('.admin-form').scrollIntoView({behavior:'smooth'});
 }
-document.getElementById('cancelEditBtn').onclick = resetForm;
-function resetForm(){
-  editingProductId = null;
-  document.getElementById('formTitle').textContent = 'Add a product';
-  ['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=> document.getElementById(id).value='');
-  document.getElementById('pType').value = 'ebook';
-  document.getElementById('cancelEditBtn').classList.add('hidden');
-}
-document.getElementById('saveProductBtn').onclick = async ()=>{
-  const title = document.getElementById('pTitle').value.trim();
-  const price = Number(document.getElementById('pPrice').value);
-  if(!title || !price){ toast('Title and price are required'); return; }
-  const data = {
-    title, subject:document.getElementById('pSubject').value.trim(),
-    type:document.getElementById('pType').value, price,
-    description:document.getElementById('pDesc').value.trim(),
-    file:document.getElementById('pFile').value.trim()
-  };
-  if(editingProductId){
-    const idx = products.findIndex(p=>p.id===editingProductId);
-    products[idx] = {...products[idx], ...data};
-  } else {
-    products.push({id:'p'+Date.now(), ...data});
-  }
-  await saveProducts();
-  renderAdminProducts(); renderChips(); renderGrid();
-  resetForm();
-  toast('Product saved');
+document.getElementById('cancelEditBtn').onclick=resetForm;
+function resetForm(){editingProductId=null;document.getElementById('formTitle').textContent='Add a product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>document.getElementById(id).value='');document.getElementById('pType').value='ebook';document.getElementById('cancelEditBtn').classList.add('hidden');}
+document.getElementById('saveProductBtn').onclick=async()=>{
+  const title=document.getElementById('pTitle').value.trim();const price=Number(document.getElementById('pPrice').value);if(!title||!Number.isFinite(price)){toast('Title and valid price are required');return;}
+  const body={title,subject:document.getElementById('pSubject').value.trim(),type:document.getElementById('pType').value,price,description:document.getElementById('pDesc').value.trim(),file:document.getElementById('pFile').value.trim()};
+  try{
+    if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',auth:'admin',body});else await api('/api/admin/products',{method:'POST',auth:'admin',body});
+    resetForm();await loadAdminProducts();toast('Product saved');
+  }catch(err){toast(err.message);}
 };
 async function deleteProduct(id){
-  products = products.filter(p=>p.id!==id);
-  await saveProducts();
-  renderAdminProducts(); renderChips(); renderGrid();
-  toast('Product deleted');
+  if(!confirm('Delete this product?'))return;
+  try{await api(`/api/admin/products/${encodeURIComponent(id)}`,{method:'DELETE',auth:'admin'});await loadAdminProducts();toast('Product deleted');}catch(err){toast(err.message);}
 }
-
 async function renderAdminOrders(){
-  const raw = await safeGet('orders', true);
-  const orders = raw ? JSON.parse(raw) : [];
-  const rows = document.getElementById('adminOrderRows');
-  if(!orders.length){ rows.innerHTML = '<tr><td colspan="7" style="color:var(--muted);">No orders yet.</td></tr>'; return; }
-  rows.innerHTML = orders.map(o=>`
-    <tr>
-      <td>${o.id}</td>
-      <td>${escapeHtml(o.buyerName)}<br><span style="color:var(--muted);font-size:12px;">${escapeHtml(o.buyerEmail)}</span></td>
-      <td>${o.items.map(it=>escapeHtml(it.title)+' ×'+it.qty).join('<br>')}</td>
-      <td>${money(o.total)}</td>
-      <td>${escapeHtml(o.utr||'—')}</td>
-      <td>${o.status==='paid' ? '<span style="color:var(--mint);font-weight:600;">Paid</span>' : '<span style="color:var(--amber-dark);font-weight:600;">Pending</span>'}</td>
-      <td>
-        ${o.status==='paid'
-          ? o.items.map(it=>`<a href="${it.file||'#'}" target="_blank" style="font-size:12px;">${escapeHtml(it.title)}</a>`).join('<br>')
-          : `<button class="edit" data-id="${o.id}" style="background:none;border:none;text-decoration:underline;font-size:13px;cursor:pointer;">Mark as paid</button>`
-        }
-      </td>
-    </tr>
-  `).join('');
-  rows.querySelectorAll('.edit[data-id]').forEach(btn=>{
-    btn.onclick = ()=> markOrderPaid(btn.dataset.id, orders);
-  });
+  if(!isAdmin)return;const rows=document.getElementById('adminOrderRows');rows.innerHTML='<tr><td colspan="7" class="muted-small">Loading…</td></tr>';
+  try{
+    const data=await api('/api/admin/orders',{auth:'admin'});const orders=data.orders||[];
+    if(!orders.length){rows.innerHTML='<tr><td colspan="7" class="muted-small">No orders yet.</td></tr>';return;}
+    rows.innerHTML=orders.map(o=>`<tr>
+      <td><strong>${escapeHtml(o.id)}</strong><br><span class="muted-small">${escapeHtml(dateText(o.createdAt))}</span></td>
+      <td>${escapeHtml(o.buyerName)}<br><span class="muted-small">${escapeHtml(o.buyerEmail)}</span></td>
+      <td>${(o.items||[]).map(it=>`${escapeHtml(it.title)} ×${Number(it.qty)||1}`).join('<br>')}</td><td>${money(o.total)}</td><td>${escapeHtml(o.utr||'—')}</td><td>${statusPill(o.status)}</td>
+      <td><div class="inline-actions"><select class="status-select" data-status-for="${escapeHtml(o.id)}">${['pending','paid','delivered','rejected'].map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select><button class="mini-btn" data-update-order="${escapeHtml(o.id)}">Save</button></div></td>
+    </tr>`).join('');
+    rows.querySelectorAll('[data-update-order]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.updateOrder;const select=rows.querySelector(`[data-status-for="${CSS.escape(id)}"]`);await updateOrderStatus(id,select.value);});
+  }catch(err){rows.innerHTML=`<tr><td colspan="7" class="muted-small">${escapeHtml(err.message)}</td></tr>`;}
 }
-async function markOrderPaid(orderId, orders){
-  const idx = orders.findIndex(o=>o.id===orderId);
-  if(idx===-1) return;
-  orders[idx].status = 'paid';
-  await safeSet('orders', JSON.stringify(orders), true);
-  renderAdminOrders();
-  toast('Order marked as paid — copy the download links and email the buyer');
+async function updateOrderStatus(id,status){
+  try{await api(`/api/admin/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',auth:'admin',body:{status}});toast('Order status updated');await renderAdminOrders();}catch(err){toast(err.message);}
 }
-
-document.getElementById('saveAdminPassBtn').onclick = async ()=>{
-  const val = document.getElementById('newAdminPass').value.trim();
-  if(!val){ toast('Enter a new password'); return; }
-  await safeSet('admin-password', val, true);
-  document.getElementById('newAdminPass').value='';
-  toast('Admin password updated');
-};
-
-document.getElementById('saveUpiBtn').onclick = async ()=>{
-  const val = document.getElementById('upiIdInput').value.trim();
-  if(!val){ toast('Enter your UPI ID'); return; }
-  await safeSet('upi-id', val, true);
-  toast('UPI ID saved');
+async function renderAdminUsers(){
+  if(!isAdmin)return;const rows=document.getElementById('adminUserRows');rows.innerHTML='<tr><td colspan="6" class="muted-small">Loading…</td></tr>';
+  try{
+    const data=await api('/api/admin/users',{auth:'admin'});const users=data.users||[];
+    if(!users.length){rows.innerHTML='<tr><td colspan="6" class="muted-small">No users yet.</td></tr>';return;}
+    rows.innerHTML=users.map(u=>`<tr><td>${escapeHtml(u.name)}<br><span class="muted-small">${escapeHtml(u.email)}</span></td><td>${escapeHtml(u.provider||'guest')}</td><td>${escapeHtml(dateText(u.createdAt))}</td><td>${escapeHtml(dateText(u.lastSeenAt))}</td><td>${Number(u.orderCount)||0}</td><td>${money(u.totalOrdered)}</td></tr>`).join('');
+  }catch(err){rows.innerHTML=`<tr><td colspan="6" class="muted-small">${escapeHtml(err.message)}</td></tr>`;}
+}
+document.getElementById('saveUpiBtn').onclick=async()=>{
+  const val=document.getElementById('upiIdInput').value.trim();if(!val){toast('Enter your UPI ID');return;}
+  try{await api('/api/admin/settings',{method:'PUT',auth:'admin',body:{upiId:val}});upiId=val;toast('UPI ID saved');}catch(err){toast(err.message);}
 };
 async function loadUpiSetting(){
-  const val = await safeGet('upi-id', true);
-  document.getElementById('upiIdInput').value = val || '';
+  if(!isAdmin)return;try{const data=await api('/api/admin/settings',{auth:'admin'});document.getElementById('upiIdInput').value=data.upiId||'';}catch(err){toast(err.message);}
 }
-
-document.getElementById('sellCta').onclick = ()=>{
-  if(isAdmin){ showAdminShell(); } else { openModal('adminLoginModal'); }
+document.getElementById('saveAdminPassBtn').onclick=async()=>{
+  const val=document.getElementById('newAdminPass').value;if(val.length<10){toast('Use at least 10 characters');return;}
+  try{await api('/api/admin/password',{method:'PUT',auth:'admin',body:{newPassword:val}});document.getElementById('newAdminPass').value='';toast('Admin password updated');}catch(err){toast(err.message);}
 };
+document.getElementById('sellCta').onclick=()=>{if(isAdmin)showAdminShell();else openModal('adminLoginModal');};
 
-// INIT
 (async function init(){
-  await loadProducts();
-  await loadCart();
-  await loadUser();
-  if(window.location.pathname.replace(/\/$/,'').endsWith('/admin')){
-    if(isAdmin){ showAdminShell(); } else { openModal('adminLoginModal'); }
+  loadCart();loadUser();await loadProducts();
+  if(!backendConfigured()){
+    document.querySelector('.setup-note').innerHTML='Backend is not configured yet. Set <strong>API_BASE_URL</strong> in <code>config.js</code> after deploying the backend.';
   }
+  if(window.location.pathname.replace(/\/$/,'').endsWith('/admin')){if(isAdmin)showAdminShell();else openModal('adminLoginModal');}
 })();
 </script>
 </body>
