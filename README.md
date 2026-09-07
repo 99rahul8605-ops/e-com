@@ -204,3 +204,34 @@ Before replacing the whole project directory on the VPS, back up `public/uploads
 Checkout no longer trusts the browser's displayed cart amount. The browser sends only product IDs/quantities to `/api/checkout/quote`; the backend reloads current prices from MongoDB, calculates the total, creates a 15-minute checkout quote, and generates the UPI QR for that exact amount. The final order must reference the same unused quote, which prevents a changed client-side amount from being submitted as the order total.
 
 The UPI ID is configured in Admin → Settings. There is still no automatic payment-gateway verification: the buyer enters the UTR and the admin verifies the payment manually.
+
+
+## 2026-09-07 complete storefront update
+
+This build includes:
+- Server-generated UPI QR with exact MongoDB-verified cart amount.
+- Buy Now beside Add to cart.
+- Product image upload from Admin -> Products (JPG/PNG/WebP, max 2 MB by default).
+- Admin-configurable support contact + support link, shown on the customer store.
+- Google-only login.
+- `/config.js` generated dynamically from `backend/.env`; keep `GOOGLE_CLIENT_ID` only in `.env`.
+
+### Upgrade on VPS
+Preserve `backend/.env` and `public/uploads/products/`, then replace tracked files and run:
+
+```bash
+cd /root/e-com/backend
+npm install
+pm2 restart e-com --update-env
+```
+
+Verify the new build actually reached the VPS:
+
+```bash
+grep -n "Buy now" /root/e-com/public/index.html
+grep -n "Product image" /root/e-com/public/admin.html
+curl -s http://127.0.0.1:3000/config.js
+curl -s http://127.0.0.1:3000/api/health
+```
+
+Admin settings must contain a valid UPI ID before checkout can generate a QR.

@@ -271,6 +271,19 @@ function validUpiId(value) {
   if (!/^[A-Za-z0-9._-]{2,}@[A-Za-z0-9.-]{2,}$/.test(upi)) throw httpError(400, 'Invalid UPI ID');
   return upi;
 }
+function supportContactField(value) {
+  return textField(value, 'support contact', 160);
+}
+function safeSupportUrl(value) {
+  const text = textField(value, 'support link', 500);
+  if (!text) return '';
+  let url;
+  try { url = new URL(text); } catch { throw httpError(400, 'Support link must be a valid URL'); }
+  const allowed = new Set(['https:', 'mailto:', 'tel:']);
+  if (!allowed.has(url.protocol)) throw httpError(400, 'Support link must use HTTPS, mailto or tel');
+  if (url.protocol === 'https:' && (url.username || url.password)) throw httpError(400, 'Invalid support link');
+  return url.href;
+}
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -437,7 +450,7 @@ app.get('/api/products', async (req, res, next) => {
 app.get('/api/settings/public', async (req, res, next) => {
   try {
     const settings = await db.collection('settings').findOne({ _id: 'store' }, { maxTimeMS: 3000 });
-    res.json({ upiId: settings?.upiId || '' });
+    res.json({ upiId: settings?.upiId || '', supportContact: settings?.supportContact || '', supportUrl: settings?.supportUrl || '' });
   } catch (err) { next(err); }
 });
 
@@ -778,19 +791,21 @@ app.get('/api/admin/users', requireAdmin, async (req, res, next) => {
 app.get('/api/admin/settings', requireAdmin, async (req, res, next) => {
   try {
     const settings = await db.collection('settings').findOne({ _id:'store' }, { maxTimeMS:3000 });
-    res.json({ upiId:settings?.upiId || '' });
+    res.json({ upiId:settings?.upiId || '', supportContact:settings?.supportContact || '', supportUrl:settings?.supportUrl || '' });
   } catch (err) { next(err); }
 });
 
 app.put('/api/admin/settings', requireAdmin, adminWriteLimiter, async (req, res, next) => {
   try {
     const upiId = validUpiId(req.body.upiId);
+    const supportContact = supportContactField(req.body.supportContact);
+    const supportUrl = safeSupportUrl(req.body.supportUrl);
     await db.collection('settings').updateOne(
       { _id:'store' },
-      { $set:{ upiId, updatedAt:new Date() }, $setOnInsert:{ createdAt:new Date() } },
+      { $set:{ upiId, supportContact, supportUrl, updatedAt:new Date() }, $setOnInsert:{ createdAt:new Date() } },
       { upsert:true }
     );
-    res.json({ upiId });
+    res.json({ upiId, supportContact, supportUrl });
   } catch (err) { next(err); }
 });
 
@@ -807,6 +822,15 @@ app.put('/api/admin/password', requireAdmin, adminWriteLimiter, async (req, res,
     clearAdminCookie(req, res);
     res.json({ ok:true, reauthRequired:true });
   } catch (err) { next(err); }
+});
+
+// Browser config is generated from server environment variables so GOOGLE_CLIENT_ID
+// only needs to be configured once in backend/.env. Client IDs are public by design;
+// secrets such as JWT_SECRET and MongoDB credentials are never exposed here.
+app.get('/config.js', (req, res) => {
+  res.type('application/javascript');
+  res.set('Cache-Control', 'no-store');
+  res.send(`window.TEAM_SECRET_CONFIG = ${JSON.stringify({ API_BASE_URL:'', GOOGLE_CLIENT_ID })};`);
 });
 
 // Separate admin entry point. It is intentionally not linked from the public storefront.

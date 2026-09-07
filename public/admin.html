@@ -92,8 +92,14 @@
 
     <section id="tabSettings" class="hidden">
       <div class="section-card card">
-        <div class="section-head"><h2>Payment settings</h2></div>
-        <div class="field"><label>UPI ID</label><input id="upiIdInput" maxlength="150" placeholder="yourname@upi"></div><button id="saveUpiBtn" class="btn btn-primary">Save UPI ID</button>
+        <div class="section-head"><h2>Store &amp; payment settings</h2></div>
+        <div class="grid2">
+          <div class="field"><label>UPI ID</label><input id="upiIdInput" maxlength="150" placeholder="yourname@upi"></div>
+          <div class="field"><label>Support contact</label><input id="supportContactInput" maxlength="160" placeholder="@team_secret_cont_bot / email / phone"></div>
+          <div class="field span2"><label>Support link (optional)</label><input id="supportUrlInput" maxlength="500" placeholder="https://t.me/your_support or mailto:support@example.com"></div>
+        </div>
+        <button id="saveSettingsBtn" class="btn btn-primary">Save store settings</button>
+        <div class="small muted" style="margin-top:8px">Support contact is shown to customers on the store and checkout/order screens.</div>
       </div>
       <div class="section-card card">
         <div class="section-head"><h2>Admin password</h2></div>
@@ -179,7 +185,7 @@ $('orderStatusFilter').onchange=async()=>{orderPage=1;await loadOrders();};
 async function loadAll(){
   try{
     const [p,s,st]=await Promise.all([api('/api/admin/products'),api('/api/admin/settings'),api('/api/admin/stats')]);
-    products=p.products||[];$('upiIdInput').value=s.upiId||'';stats=st||stats;
+    products=p.products||[];$('upiIdInput').value=s.upiId||'';$('supportContactInput').value=s.supportContact||'';$('supportUrlInput').value=s.supportUrl||'';stats=st||stats;
     await Promise.all([loadOrders(),loadUsers()]);
     renderProducts();renderStats();
   }catch(err){toast(err.message);}
@@ -235,7 +241,7 @@ $('saveProductBtn').onclick=async()=>{
 };
 async function deleteProduct(id){if(!confirm('Delete this product?'))return;try{await api(`/api/admin/products/${encodeURIComponent(id)}`,{method:'DELETE'});products=products.filter(p=>p.id!==id);stats=await api('/api/admin/stats');renderProducts();renderStats();toast('Product deleted');}catch(err){toast(err.message);}}
 function renderUsers(){const rows=$('userRows');if(!users.length){rows.innerHTML='<tr><td colspan="6" class="muted">No users.</td></tr>';return;}rows.innerHTML=users.map(u=>`<tr><td><strong>${escapeHtml(u.name||'—')}</strong><br><span class="small muted">${escapeHtml(u.email||'—')}</span></td><td>${escapeHtml(u.provider||'guest')}</td><td>${escapeHtml(dateText(u.createdAt))}</td><td>${escapeHtml(dateText(u.lastSeenAt))}</td><td>${Number(u.orderCount)||0}</td><td>${money(u.totalOrdered)}</td></tr>`).join('');}
-$('saveUpiBtn').onclick=async()=>{const upiId=$('upiIdInput').value.trim();if(!upiId){toast('Enter UPI ID');return;}try{await api('/api/admin/settings',{method:'PUT',body:{upiId}});toast('UPI ID saved');}catch(err){toast(err.message);}};
+$('saveSettingsBtn').onclick=async()=>{const upiId=$('upiIdInput').value.trim();const supportContact=$('supportContactInput').value.trim();const supportUrl=$('supportUrlInput').value.trim();if(!upiId){toast('Enter UPI ID');return;}try{await api('/api/admin/settings',{method:'PUT',body:{upiId,supportContact,supportUrl}});toast('Store settings saved');}catch(err){toast(err.message);}};
 $('saveAdminPassBtn').onclick=async()=>{const newPassword=$('newAdminPass').value;if(newPassword.length<12){toast('Use at least 12 characters');return;}try{await api('/api/admin/password',{method:'PUT',body:{newPassword}});$('newAdminPass').value='';setLoggedOut(false);$('loginError').textContent='Password changed. Sign in again.';}catch(err){toast(err.message);}};
 
 (async()=>{try{await api('/api/admin/settings');$('loginView').classList.add('hidden');$('dashboardView').classList.remove('hidden');await loadAll();}catch{setLoggedOut(false);}})();</script>
