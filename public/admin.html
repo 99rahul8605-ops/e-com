@@ -22,6 +22,7 @@
 .order-filter{display:flex;gap:8px;align-items:center}.order-filter select{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}.pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px}.pager .small{min-width:110px;text-align:center}
 .toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,10px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:9px;opacity:0;pointer-events:none;transition:.18s;z-index:100}.toast.show{opacity:1;transform:translate(-50%,0)}
 .notice{padding:12px 14px;border-radius:9px;background:var(--accent-soft);border:1px solid #efd7ad;font-size:13px;line-height:1.5}.login-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px}
+.image-picker{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}.image-preview{width:150px;height:110px;border:1px dashed var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafbfc;color:var(--muted);font-size:12px}.image-preview img{width:100%;height:100%;object-fit:cover;display:block}.product-thumb{width:58px;height:44px;object-fit:cover;border-radius:7px;border:1px solid var(--line);background:#f5f6f8}.upload-help{font-size:12px;color:var(--muted);margin-top:6px}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.span2{grid-column:auto}.wrap{padding:18px}.topbar-inner{padding:12px 18px}}@media(max-width:520px){.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:14px}.stat .value{font-size:23px}.top-actions .store-text{display:none}}
 </style>
 </head>
@@ -76,12 +77,13 @@
           <div class="field"><label>Subject</label><input id="pSubject" maxlength="120"></div>
           <div class="field"><label>Type</label><select id="pType"><option value="ebook">E-book</option><option value="handwritten">Handwritten notes</option><option value="guide">Study guide</option><option value="template">Template</option><option value="website">Website template</option></select></div>
           <div class="field"><label>Price (₹)</label><input id="pPrice" type="number" min="0" step="0.01"></div>
+          <div class="field span2"><label>Product image</label><div class="image-picker"><div class="image-preview" id="pImagePreview">No image</div><div style="flex:1;min-width:220px"><input id="pImage" type="file" accept="image/jpeg,image/png,image/webp"><div class="upload-help">JPG, PNG or WebP · max 2 MB. Images are stored on this VPS.</div><button id="removeImageBtn" type="button" class="mini danger hidden" style="margin-top:8px">Remove current image</button></div></div></div>
           <div class="field span2"><label>Description</label><textarea id="pDesc" maxlength="2000"></textarea></div>
           <div class="field span2"><label>Download link</label><input id="pFile" type="url" maxlength="2000" placeholder="https://..."></div>
         </div>
         <div class="actions"><button id="saveProductBtn" class="btn btn-primary">Save product</button><button id="cancelEditBtn" class="btn btn-outline hidden">Cancel edit</button></div>
       </div>
-      <div class="section-card card"><div class="section-head"><h2>Products</h2></div><div class="table-wrap"><table><thead><tr><th>Title</th><th>Subject</th><th>Type</th><th>Price</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div></div>
+      <div class="section-card card"><div class="section-head"><h2>Products</h2></div><div class="table-wrap"><table><thead><tr><th>Image</th><th>Title</th><th>Subject</th><th>Type</th><th>Price</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div></div>
     </section>
 
     <section id="tabUsers" class="hidden">
@@ -110,12 +112,15 @@ let orders = [];
 let users = [];
 let stats = {products:0,orders:0,pending:0,users:0};
 let editingProductId = null;
+let currentProductImage = '';
+let previewObjectUrl = '';
 let orderPage = 1, orderPages = 1;
 let userPage = 1, userPages = 1;
 const PAGE_SIZE = 50;
 
 const $ = id => document.getElementById(id);
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function safeImageUrl(v){try{const u=new URL(String(v||''),window.location.href);return ['http:','https:','blob:'].includes(u.protocol)?u.href:'';}catch{return '';}}
 function money(v){return '₹'+Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});}
 function dateText(v){if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});}
 function toast(msg){$('toast').textContent=String(msg||'');$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2400);}
@@ -135,6 +140,20 @@ async function api(path,{method='GET',body}={}){
   }
   return data;
 }
+
+async function uploadProductImage(file){
+  const form=new FormData();form.append('image',file);
+  const res=await fetch(API_BASE_URL+'/api/admin/product-image',{method:'POST',credentials:'same-origin',body:form});
+  let data={};try{data=await res.json();}catch{}
+  if(!res.ok){if(res.status===401)setLoggedOut(false);throw new Error(data.error||`Image upload failed (${res.status})`);}
+  return data.image||'';
+}
+function setImagePreview(url){
+  const box=$('pImagePreview');const safe=safeImageUrl(url);
+  if(safe){box.innerHTML=`<img src="${escapeHtml(safe)}" alt="Product image preview">`;$('removeImageBtn').classList.remove('hidden');}
+  else{box.textContent='No image';$('removeImageBtn').classList.add('hidden');}
+}
+function clearPreviewObjectUrl(){if(previewObjectUrl){URL.revokeObjectURL(previewObjectUrl);previewObjectUrl='';}}
 
 let loginLockTimer=null;
 function showLoginLock(seconds){
@@ -187,14 +206,33 @@ function renderOrders(){
   rows.querySelectorAll('[data-save-status]').forEach(btn=>btn.onclick=async()=>{const id=btn.dataset.saveStatus;const select=rows.querySelector(`[data-status="${CSS.escape(id)}"]`);try{const data=await api(`/api/admin/orders/${encodeURIComponent(id)}/status`,{method:'PATCH',body:{status:select.value}});const idx=orders.findIndex(x=>x.id===id);if(idx>=0)orders[idx]=data.order;stats=await api('/api/admin/stats');renderOrders();renderStats();toast('Order status updated');}catch(err){toast(err.message);}});
 }
 function renderProducts(){
-  const rows=$('productRows');if(!products.length){rows.innerHTML='<tr><td colspan="5" class="muted">No products.</td></tr>';return;}
-  rows.innerHTML=products.map(p=>`<tr><td><strong>${escapeHtml(p.title)}</strong></td><td>${escapeHtml(p.subject||'—')}</td><td>${escapeHtml(p.type||'—')}</td><td>${money(p.price)}</td><td><div class="actions"><button class="mini" data-edit="${escapeHtml(p.id)}">Edit</button><button class="mini danger" data-delete="${escapeHtml(p.id)}">Delete</button></div></td></tr>`).join('');
+  const rows=$('productRows');if(!products.length){rows.innerHTML='<tr><td colspan="6" class="muted">No products.</td></tr>';return;}
+  rows.innerHTML=products.map(p=>{const img=safeImageUrl(p.image);return `<tr><td>${img?`<img class="product-thumb" src="${escapeHtml(img)}" alt="">`:'—'}</td><td><strong>${escapeHtml(p.title)}</strong></td><td>${escapeHtml(p.subject||'—')}</td><td>${escapeHtml(p.type||'—')}</td><td>${money(p.price)}</td><td><div class="actions"><button class="mini" data-edit="${escapeHtml(p.id)}">Edit</button><button class="mini danger" data-delete="${escapeHtml(p.id)}">Delete</button></div></td></tr>`;}).join('');
   rows.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editProduct(b.dataset.edit));rows.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteProduct(b.dataset.delete));
 }
-function editProduct(id){const p=products.find(x=>x.id===id);if(!p)return;editingProductId=id;$('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});}
-function resetProductForm(){editingProductId=null;$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pType').value='ebook';$('cancelEditBtn').classList.add('hidden');}
+function editProduct(id){
+  const p=products.find(x=>x.id===id);if(!p)return;editingProductId=id;currentProductImage=p.image||'';clearPreviewObjectUrl();
+  $('productFormTitle').textContent='Edit product';$('pTitle').value=p.title||'';$('pSubject').value=p.subject||'';$('pType').value=p.type||'ebook';$('pPrice').value=p.price??'';$('pDesc').value=p.description||'';$('pFile').value=p.file||'';$('pImage').value='';setImagePreview(currentProductImage);$('cancelEditBtn').classList.remove('hidden');window.scrollTo({top:$('tabProducts').offsetTop-80,behavior:'smooth'});
+}
+function resetProductForm(){
+  editingProductId=null;currentProductImage='';clearPreviewObjectUrl();$('productFormTitle').textContent='Add product';['pTitle','pSubject','pPrice','pDesc','pFile'].forEach(id=>$(id).value='');$('pImage').value='';$('pType').value='ebook';setImagePreview('');$('cancelEditBtn').classList.add('hidden');
+}
+$('pImage').onchange=()=>{clearPreviewObjectUrl();const file=$('pImage').files?.[0];if(!file){setImagePreview(currentProductImage);return;}if(file.size>2*1024*1024){$('pImage').value='';toast('Image must be 2 MB or smaller');setImagePreview(currentProductImage);return;}previewObjectUrl=URL.createObjectURL(file);setImagePreview(previewObjectUrl);};
+$('removeImageBtn').onclick=()=>{clearPreviewObjectUrl();currentProductImage='';$('pImage').value='';setImagePreview('');};
 $('cancelEditBtn').onclick=resetProductForm;
-$('saveProductBtn').onclick=async()=>{const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim()};try{if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});const data=await api('/api/admin/products');products=data.products||[];stats=await api('/api/admin/stats');resetProductForm();renderProducts();renderStats();toast('Product saved');}catch(err){toast(err.message);}};
+$('saveProductBtn').onclick=async()=>{
+  const title=$('pTitle').value.trim();const price=Number($('pPrice').value);if(!title||!Number.isFinite(price)||price<0){toast('Valid title and price are required');return;}
+  const btn=$('saveProductBtn');btn.disabled=true;let uploadedImage='';
+  try{
+    let image=currentProductImage;const file=$('pImage').files?.[0];if(file){uploadedImage=await uploadProductImage(file);image=uploadedImage;}
+    const body={title,subject:$('pSubject').value.trim(),type:$('pType').value,price,description:$('pDesc').value.trim(),file:$('pFile').value.trim(),image};
+    if(editingProductId)await api(`/api/admin/products/${encodeURIComponent(editingProductId)}`,{method:'PUT',body});else await api('/api/admin/products',{method:'POST',body});
+    const data=await api('/api/admin/products');products=data.products||[];stats=await api('/api/admin/stats');resetProductForm();renderProducts();renderStats();toast('Product saved');
+  }catch(err){
+    if(uploadedImage){try{await api('/api/admin/product-image',{method:'DELETE',body:{image:uploadedImage}});}catch{}}
+    toast(err.message);
+  }finally{btn.disabled=false;}
+};
 async function deleteProduct(id){if(!confirm('Delete this product?'))return;try{await api(`/api/admin/products/${encodeURIComponent(id)}`,{method:'DELETE'});products=products.filter(p=>p.id!==id);stats=await api('/api/admin/stats');renderProducts();renderStats();toast('Product deleted');}catch(err){toast(err.message);}}
 function renderUsers(){const rows=$('userRows');if(!users.length){rows.innerHTML='<tr><td colspan="6" class="muted">No users.</td></tr>';return;}rows.innerHTML=users.map(u=>`<tr><td><strong>${escapeHtml(u.name||'—')}</strong><br><span class="small muted">${escapeHtml(u.email||'—')}</span></td><td>${escapeHtml(u.provider||'guest')}</td><td>${escapeHtml(dateText(u.createdAt))}</td><td>${escapeHtml(dateText(u.lastSeenAt))}</td><td>${Number(u.orderCount)||0}</td><td>${money(u.totalOrdered)}</td></tr>`).join('');}
 $('saveUpiBtn').onclick=async()=>{const upiId=$('upiIdInput').value.trim();if(!upiId){toast('Enter UPI ID');return;}try{await api('/api/admin/settings',{method:'PUT',body:{upiId}});toast('UPI ID saved');}catch(err){toast(err.message);}};

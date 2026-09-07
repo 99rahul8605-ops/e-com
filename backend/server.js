@@ -7,13 +7,17 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+const QRCode = require('qrcode');
 const { MongoClient } = require('mongodb');
 const { OAuth2Client } = require('google-auth-library');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const FRONTEND_DIR = path.resolve(__dirname, '..', 'public');
+const PRODUCT_UPLOAD_DIR = path.join(FRONTEND_DIR, 'uploads', 'products');
 const MONGODB_URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || 'team_secret_store';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -25,6 +29,7 @@ const API_RATE_LIMIT_PER_MINUTE = clampInt(process.env.API_RATE_LIMIT_PER_MINUTE
 const AUTH_RATE_LIMIT_PER_15_MIN = clampInt(process.env.AUTH_RATE_LIMIT_PER_15_MIN, 20, 5, 500);
 const ORDER_RATE_LIMIT_PER_10_MIN = clampInt(process.env.ORDER_RATE_LIMIT_PER_10_MIN, 10, 2, 200);
 const ADMIN_READ_PAGE_SIZE = clampInt(process.env.ADMIN_READ_PAGE_SIZE, 50, 10, 100);
+const PRODUCT_IMAGE_MAX_MB = clampInt(process.env.PRODUCT_IMAGE_MAX_MB, 2, 1, 5);
 const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || '')
   .split(',')
   .map(v => v.trim().replace(/\/$/, ''))
@@ -47,10 +52,10 @@ let db;
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 const DEFAULT_PRODUCTS = [
-  {id:'p1', title:'Class 12 Physics — Full Notes', subject:'Physics', type:'handwritten', price:149, description:'Chapter-wise handwritten notes covering the entire CBSE Class 12 Physics syllabus.', file:'#'},
-  {id:'p2', title:'Organic Chemistry Crash Guide', subject:'Chemistry', type:'guide', price:199, description:'A compact revision guide for organic chemistry reactions and mechanisms.', file:'#'},
-  {id:'p3', title:'Data Structures E-book', subject:'Computer Science', type:'ebook', price:249, description:'Beginner-friendly e-book on arrays, trees, graphs and common interview problems.', file:'#'},
-  {id:'p4', title:'UPSC Essay Answer Templates', subject:'UPSC', type:'template', price:99, description:'Ready-to-adapt structures for scoring well in the essay paper.', file:'#'}
+  {id:'p1', title:'Class 12 Physics — Full Notes', subject:'Physics', type:'handwritten', price:149, description:'Chapter-wise handwritten notes covering the entire CBSE Class 12 Physics syllabus.', image:'', file:'#'},
+  {id:'p2', title:'Organic Chemistry Crash Guide', subject:'Chemistry', type:'guide', price:199, description:'A compact revision guide for organic chemistry reactions and mechanisms.', image:'', file:'#'},
+  {id:'p3', title:'Data Structures E-book', subject:'Computer Science', type:'ebook', price:249, description:'Beginner-friendly e-book on arrays, trees, graphs and common interview problems.', image:'', file:'#'},
+  {id:'p4', title:'UPSC Essay Answer Templates', subject:'UPSC', type:'template', price:99, description:'Ready-to-adapt structures for scoring well in the essay paper.', image:'', file:'#'}
 ];
 
 // Cloudflare Tunnel is the only intended public path. One trusted proxy hop lets
@@ -114,7 +119,8 @@ app.use(cors({
 // admin mutations require a CORS preflight from any different origin.
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store');
-  if (['POST', 'PUT', 'PATCH'].includes(req.method) && !req.is('application/json')) {
+  const isProductImageUpload = req.path === '/admin/product-image' && req.method === 'POST';
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && !isProductImageUpload && !req.is('application/json')) {
     return res.status(415).json({ error: 'Content-Type must be application/json' });
   }
   next();
@@ -149,6 +155,13 @@ const orderLimiter = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many order attempts. Please wait before trying again.' }
+});
+const quoteLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many checkout refreshes. Please wait a little and try again.' }
 });
 const adminWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -225,6 +238,34 @@ function safeDownloadUrl(value) {
   if (url.protocol !== 'https:' || url.username || url.password) throw httpError(400, 'Download link must use HTTPS');
   return url.href;
 }
+function safeProductImage(value) {
+  const text = textField(value, 'product image', 2000);
+  if (!text) return '';
+  if (/^\/uploads\/products\/[A-Za-z0-9._-]+\.(?:jpg|png|webp)$/i.test(text)) return text;
+  let url;
+  try { url = new URL(text); } catch { throw httpError(400, 'Product image must be a valid uploaded image or HTTPS URL'); }
+  if (url.protocol !== 'https:' || url.username || url.password) throw httpError(400, 'Product image URL must use HTTPS');
+  return url.href;
+}
+function productImageExtension(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 12) return '';
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'jpg';
+  if (buffer.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]))) return 'png';
+  if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  return '';
+}
+async function removeLocalProductImage(image) {
+  if (!/^\/uploads\/products\/[A-Za-z0-9._-]+\.(?:jpg|png|webp)$/i.test(String(image || ''))) return;
+  const filename = path.basename(image);
+  const target = path.join(PRODUCT_UPLOAD_DIR, filename);
+  if (!target.startsWith(PRODUCT_UPLOAD_DIR + path.sep)) return;
+  try { await fs.promises.unlink(target); } catch (err) { if (err?.code !== 'ENOENT') console.warn('Could not delete product image:', err.message); }
+}
+const productImageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: PRODUCT_IMAGE_MAX_MB * 1024 * 1024, files: 1, fields: 2 }
+});
+
 function validUpiId(value) {
   const upi = textField(value, 'UPI ID', 150, { required: true });
   if (!/^[A-Za-z0-9._-]{2,}@[A-Za-z0-9.-]{2,}$/.test(upi)) throw httpError(400, 'Invalid UPI ID');
@@ -243,6 +284,7 @@ function newUserToken() {
 function newProductId() {
   return 'p_' + Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex');
 }
+function newQuoteId() { return 'Q-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(6).toString('hex').toUpperCase(); }
 function newOrderId() {
   const d = new Date();
   const ymd = `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
@@ -317,7 +359,7 @@ async function requireUser(req, res, next) {
   }
 }
 function publicProduct(p) {
-  return { id:p.id, title:p.title, subject:p.subject, type:p.type, price:p.price, description:p.description };
+  return { id:p.id, title:p.title, subject:p.subject, type:p.type, price:p.price, description:p.description, image:p.image || '' };
 }
 function sanitizeOrderForUser(order) {
   const canDownload = ['paid','delivered'].includes(order.status);
@@ -343,6 +385,41 @@ function pagination(req, defaultLimit = ADMIN_READ_PAGE_SIZE) {
   return { page, limit, skip: (page - 1) * limit };
 }
 
+async function resolveCartItems(submittedItems) {
+  if (!Array.isArray(submittedItems) || !submittedItems.length || submittedItems.length > 30) {
+    throw httpError(400, 'Cart is empty or too large');
+  }
+  const normalized = submittedItems.map(it => {
+    if (!it || typeof it !== 'object' || Array.isArray(it)) throw httpError(400, 'Invalid cart item');
+    const productId = productIdField(it.productId);
+    const qty = Number(it.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw httpError(400, 'Invalid item quantity');
+    return { productId, qty };
+  });
+  const ids = [...new Set(normalized.map(it => it.productId))];
+  const products = await db.collection('products')
+    .find({ id:{ $in:ids }, active:{ $ne:false } })
+    .maxTimeMS(3000)
+    .toArray();
+  const byId = new Map(products.map(p => [p.id,p]));
+  if (products.length !== ids.length) throw httpError(400, 'One or more products are unavailable. Refresh the store and try again.');
+  return normalized.map(it => {
+    const p = byId.get(it.productId);
+    return {
+      productId:p.id,
+      title:textField(p.title, 'product title', 160, { required:true }),
+      qty:it.qty,
+      price:priceField(p.price),
+      file:safeDownloadUrl(p.file || '')
+    };
+  });
+}
+function orderTotal(items) {
+  const total = Math.round(items.reduce((sum,it) => sum + it.price * it.qty, 0) * 100) / 100;
+  if (total > 5000000) throw httpError(400, 'Order total is too large');
+  return total;
+}
+
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'team-secret-store-api' }));
 
 app.get('/api/products', async (req, res, next) => {
@@ -364,26 +441,33 @@ app.get('/api/settings/public', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.post('/api/users/guest', authLimiter, async (req, res, next) => {
+app.post('/api/checkout/quote', quoteLimiter, requireUser, async (req, res, next) => {
   try {
-    const name = textField(req.body.name, 'name', 80, { required: true, min: 2 });
-    const email = cleanEmail(req.body.email);
-    const existingToken = textField(req.body.userToken, 'user token', 200);
-    const now = new Date();
-    let rawToken = existingToken;
-    let user = existingToken ? await db.collection('users').findOne({ tokenHash: hashToken(existingToken) }, { maxTimeMS: 3000 }) : null;
-
-    if (user) {
-      await db.collection('users').updateOne({ _id: user._id }, { $set: { name, email, provider:'guest', lastSeenAt:now } });
-      user = { ...user, name, email, provider:'guest', lastSeenAt:now };
-    } else {
-      rawToken = newUserToken();
-      const doc = { name, email, provider:'guest', tokenHash:hashToken(rawToken), createdAt:now, lastSeenAt:now };
-      const result = await db.collection('users').insertOne(doc);
-      user = { ...doc, _id: result.insertedId };
-    }
-
-    res.json({ user: { id:String(user._id), name:user.name, email:user.email, provider:user.provider }, userToken: rawToken });
+    const items = await resolveCartItems(req.body.items);
+    const total = orderTotal(items);
+    const settings = await db.collection('settings').findOne({ _id:'store' }, { maxTimeMS:3000 });
+    const upiId = settings?.upiId ? validUpiId(settings.upiId) : '';
+    if (!upiId) throw httpError(503, 'UPI payment is not configured yet');
+    const params = new URLSearchParams({
+      pa: upiId,
+      pn: 'Team Secret',
+      am: total.toFixed(2),
+      cu: 'INR',
+      tn: 'Team Secret order payment'
+    });
+    const upiUri = `upi://pay?${params.toString()}`;
+    const quoteId = newQuoteId();
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 15 * 60 * 1000);
+    await db.collection('checkout_quotes').insertOne({
+      _id:quoteId, userId:req.user._id, items, total, used:false, createdAt, expiresAt
+    });
+    const qrDataUrl = await QRCode.toDataURL(upiUri, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 320
+    });
+    res.json({ quoteId, expiresAt, total, upiId, upiUri, qrDataUrl });
   } catch (err) { next(err); }
 });
 
@@ -427,39 +511,32 @@ app.post('/api/auth/google', authLimiter, async (req, res, next) => {
 app.post('/api/orders', orderLimiter, requireUser, async (req, res, next) => {
   try {
     const utr = utrField(req.body.utr);
-    const submittedItems = Array.isArray(req.body.items) ? req.body.items : [];
-    if (!submittedItems.length || submittedItems.length > 30) throw httpError(400, 'Cart is empty or too large');
-
-    const normalized = submittedItems.map(it => {
-      if (!it || typeof it !== 'object' || Array.isArray(it)) throw httpError(400, 'Invalid cart item');
-      const productId = productIdField(it.productId);
-      const qty = Number(it.qty);
-      if (!Number.isInteger(qty) || qty < 1 || qty > 20) throw httpError(400, 'Invalid item quantity');
-      return { productId, qty };
-    });
-    const ids = [...new Set(normalized.map(it => it.productId))];
-    const products = await db.collection('products')
-      .find({ id:{ $in:ids }, active:{ $ne:false } })
-      .maxTimeMS(3000)
-      .toArray();
-    const byId = new Map(products.map(p => [p.id,p]));
-    if (products.length !== ids.length) throw httpError(400, 'One or more products are unavailable. Refresh the store and try again.');
+    const quoteId = textField(req.body.quoteId, 'checkout quote', 80, { required:true });
+    if (!/^Q-[A-Z0-9-]+$/.test(quoteId)) throw httpError(400, 'Invalid checkout quote');
 
     const duplicateUtr = await db.collection('orders').findOne({ utr }, { projection:{ _id:1 }, maxTimeMS:3000 });
     if (duplicateUtr) throw httpError(409, 'This UTR has already been used for an order');
 
-    const items = normalized.map(it => {
-      const p = byId.get(it.productId);
-      return { productId:p.id, title:textField(p.title, 'product title', 160, { required:true }), qty:it.qty, price:priceField(p.price), file:safeDownloadUrl(p.file || '') };
-    });
-    const total = Math.round(items.reduce((sum,it) => sum + it.price * it.qty, 0) * 100) / 100;
-    if (total > 5000000) throw httpError(400, 'Order total is too large');
     const now = new Date();
+    const quote = await db.collection('checkout_quotes').findOneAndUpdate(
+      { _id:quoteId, userId:req.user._id, used:false, expiresAt:{ $gt:now } },
+      { $set:{ used:true, usedAt:now } },
+      { returnDocument:'before' }
+    );
+    if (!quote) throw httpError(409, 'Checkout quote expired or already used. Reopen checkout to generate a new QR.');
+    const items = Array.isArray(quote.items) ? quote.items : [];
+    const total = priceField(quote.total);
     const order = {
       id:newOrderId(), userId:req.user._id, buyerName:req.user.name, buyerEmail:req.user.email,
       utr, items, total, status:'pending', createdAt:now, updatedAt:now
     };
-    await db.collection('orders').insertOne(order);
+    try {
+      await db.collection('orders').insertOne(order);
+      await db.collection('checkout_quotes').updateOne({ _id:quoteId }, { $set:{ orderId:order.id } });
+    } catch (err) {
+      await db.collection('checkout_quotes').updateOne({ _id:quoteId, orderId:{ $exists:false } }, { $set:{ used:false }, $unset:{ usedAt:'' } }).catch(() => {});
+      throw err;
+    }
     res.status(201).json({ order:sanitizeOrderForUser(order) });
   } catch (err) { next(err); }
 });
@@ -562,6 +639,27 @@ app.get('/api/admin/stats', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+app.post('/api/admin/product-image', requireAdmin, adminWriteLimiter, productImageUpload.single('image'), async (req, res, next) => {
+  try {
+    if (!req.file?.buffer) throw httpError(400, 'Choose a JPG, PNG or WebP image');
+    const ext = productImageExtension(req.file.buffer);
+    if (!ext) throw httpError(400, 'Only genuine JPG, PNG and WebP images are allowed');
+    await fs.promises.mkdir(PRODUCT_UPLOAD_DIR, { recursive:true, mode:0o755 });
+    const filename = `prod-${Date.now()}-${crypto.randomBytes(10).toString('hex')}.${ext}`;
+    const target = path.join(PRODUCT_UPLOAD_DIR, filename);
+    await fs.promises.writeFile(target, req.file.buffer, { flag:'wx', mode:0o644 });
+    res.status(201).json({ image:`/uploads/products/${filename}` });
+  } catch (err) { next(err); }
+});
+
+app.delete('/api/admin/product-image', requireAdmin, adminWriteLimiter, async (req, res, next) => {
+  try {
+    const image = safeProductImage(req.body.image);
+    if (image) await removeLocalProductImage(image);
+    res.json({ ok:true });
+  } catch (err) { next(err); }
+});
+
 app.get('/api/admin/products', requireAdmin, async (req, res, next) => {
   try {
     const products = await db.collection('products').find({}).sort({ createdAt:1 }).limit(1000).maxTimeMS(3000).toArray();
@@ -577,10 +675,11 @@ app.post('/api/admin/products', requireAdmin, adminWriteLimiter, async (req, res
     const allowedTypes = new Set(['ebook','handwritten','guide','template','website']);
     if (!allowedTypes.has(type)) throw httpError(400, 'Invalid product type');
     const description = textField(req.body.description, 'description', 2000);
+    const image = safeProductImage(req.body.image);
     const file = safeDownloadUrl(req.body.file);
     const price = priceField(req.body.price);
     const now = new Date();
-    const product = { id:newProductId(), title, subject, type, price, description, file, active:true, createdAt:now, updatedAt:now };
+    const product = { id:newProductId(), title, subject, type, price, description, image, file, active:true, createdAt:now, updatedAt:now };
     await db.collection('products').insertOne(product);
     res.status(201).json({ product });
   } catch (err) { next(err); }
@@ -595,22 +694,26 @@ app.put('/api/admin/products/:id', requireAdmin, adminWriteLimiter, async (req, 
     const allowedTypes = new Set(['ebook','handwritten','guide','template','website']);
     if (!allowedTypes.has(type)) throw httpError(400, 'Invalid product type');
     const description = textField(req.body.description, 'description', 2000);
+    const image = safeProductImage(req.body.image);
     const file = safeDownloadUrl(req.body.file);
     const price = priceField(req.body.price);
+    const current = await db.collection('products').findOne({ id }, { maxTimeMS:3000 });
+    if (!current) throw httpError(404, 'Product not found');
     const result = await db.collection('products').findOneAndUpdate(
       { id },
-      { $set:{ title,subject,type,price,description,file,updatedAt:new Date() } },
+      { $set:{ title,subject,type,price,description,image,file,updatedAt:new Date() } },
       { returnDocument:'after' }
     );
-    if (!result) throw httpError(404, 'Product not found');
+    if (current.image && current.image !== image) await removeLocalProductImage(current.image);
     res.json({ product:result });
   } catch (err) { next(err); }
 });
 
 app.delete('/api/admin/products/:id', requireAdmin, adminWriteLimiter, async (req, res, next) => {
   try {
-    const result = await db.collection('products').deleteOne({ id:productIdField(req.params.id) });
-    if (!result.deletedCount) throw httpError(404, 'Product not found');
+    const product = await db.collection('products').findOneAndDelete({ id:productIdField(req.params.id) });
+    if (!product) throw httpError(404, 'Product not found');
+    if (product.image) await removeLocalProductImage(product.image);
     res.json({ ok:true });
   } catch (err) { next(err); }
 });
@@ -735,6 +838,10 @@ app.use('/api', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error:`Product image is too large (max ${PRODUCT_IMAGE_MAX_MB} MB)` });
+    return res.status(400).json({ error:'Invalid image upload' });
+  }
   const status = Number(err?.status || err?.statusCode || 0);
   if (err?.type === 'entity.too.large' || status === 413) return res.status(413).json({ error:'Request body is too large' });
   if (err instanceof SyntaxError && 'body' in err) return res.status(400).json({ error:'Invalid JSON body' });
@@ -746,6 +853,7 @@ app.use((err, req, res, next) => {
 });
 
 async function start() {
+  await fs.promises.mkdir(PRODUCT_UPLOAD_DIR, { recursive:true, mode:0o755 });
   await mongo.connect();
   db = mongo.db(DB_NAME);
   await Promise.all([
@@ -759,7 +867,9 @@ async function start() {
     db.collection('users').createIndex({ email:1 }),
     db.collection('users').createIndex({ lastSeenAt:-1 }),
     db.collection('users').createIndex({ googleSub:1 }, { unique:true, sparse:true }),
-    db.collection('admin_login_attempts').createIndex({ expiresAt:1 }, { expireAfterSeconds:0 })
+    db.collection('admin_login_attempts').createIndex({ expiresAt:1 }, { expireAfterSeconds:0 }),
+    db.collection('checkout_quotes').createIndex({ expiresAt:1 }, { expireAfterSeconds:0 }),
+    db.collection('checkout_quotes').createIndex({ userId:1, createdAt:-1 })
   ]);
 
   const count = await db.collection('products').countDocuments({}, { maxTimeMS:3000 });

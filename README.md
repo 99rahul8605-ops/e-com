@@ -18,6 +18,7 @@ public/
   admin.html       separate admin login/dashboard
   404.html
   config.js        public browser config
+  uploads/products/ generated product images (created automatically)
 backend/
   server.js        Express + MongoDB API
   package.json
@@ -51,6 +52,7 @@ API_RATE_LIMIT_PER_MINUTE=180
 AUTH_RATE_LIMIT_PER_15_MIN=20
 ORDER_RATE_LIMIT_PER_10_MIN=10
 ADMIN_READ_PAGE_SIZE=50
+PRODUCT_IMAGE_MAX_MB=2
 ```
 
 Do not put `.env` in GitHub.
@@ -170,6 +172,8 @@ Application limits protect Node/MongoDB from ordinary abuse and many Layer-7 att
 - paginated users
 - order status update: pending / paid / delivered / rejected
 - product add / edit / delete
+- product image upload (JPG/PNG/WebP, 2 MB default) with preview/remove
+- exact-amount UPI QR generated from a server-verified checkout quote
 - UPI setting
 - admin password change
 
@@ -182,8 +186,21 @@ orders
 settings
 admin_config
 admin_login_attempts
+checkout_quotes
 ```
 
 ## Google login
 
 The backend supports Google credential verification through `GOOGLE_CLIENT_ID`. Google Sign-In becomes active after a real Web OAuth Client ID is configured in both backend `.env` and `public/config.js`.
+
+## Product images
+
+Admin → Products now accepts JPG, PNG and WebP images. The server validates the file signature, ignores the original filename, generates a random safe filename and stores it under `public/uploads/products/`. Replacing or deleting a product also removes its old locally-uploaded image.
+
+Before replacing the whole project directory on the VPS, back up `public/uploads/products/` if it already contains live product images. Normal in-place ZIP extraction/update does not require deleting this folder.
+
+## UPI QR checkout
+
+Checkout no longer trusts the browser's displayed cart amount. The browser sends only product IDs/quantities to `/api/checkout/quote`; the backend reloads current prices from MongoDB, calculates the total, creates a 15-minute checkout quote, and generates the UPI QR for that exact amount. The final order must reference the same unused quote, which prevents a changed client-side amount from being submitted as the order total.
+
+The UPI ID is configured in Admin → Settings. There is still no automatic payment-gateway verification: the buyer enters the UTR and the admin verifies the payment manually.
