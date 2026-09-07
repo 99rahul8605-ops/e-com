@@ -324,8 +324,15 @@
     <div id="checkoutForm">
       <div class="field"><label>Name</label><input id="coName"></div>
       <div class="field"><label>Email (for download link)</label><input id="coEmail"></div>
-      <button class="btn btn-amber btn-block" id="payBtn">Pay ₹<span id="payAmount">0</span> (demo)</button>
-      <div class="setup-note">This is a demo payment. To accept real payments, connect a gateway like Razorpay or Stripe on your own backend.</div>
+      <div id="upiPayBox" class="success-box" style="background:#F3F6FB;border-color:#C9D6E8;">
+        <div style="font-weight:600;margin-bottom:6px;">Pay ₹<span id="payAmount">0</span> via UPI</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Scan or tap to pay, then enter the transaction/UTR number below.</div>
+        <a id="upiPayLink" class="btn btn-outline btn-block" href="#" style="text-align:center;display:block;">Pay with UPI app</a>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:8px;">UPI ID: <strong id="upiIdDisplay">—</strong></div>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>UPI transaction / UTR number</label><input id="coUtr" placeholder="e.g. 234567891234"></div>
+      <button class="btn btn-amber btn-block" id="payBtn">I've paid — submit order</button>
+      <div class="setup-note">Payments are verified manually. Once we confirm your payment, your download link will be emailed to you.</div>
     </div>
     <div id="checkoutSuccess" class="hidden"></div>
   </div>
@@ -389,12 +396,17 @@
 
   <div id="tabOrders" class="hidden">
     <table>
-      <thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>Date</th></tr></thead>
+      <thead><tr><th>Order</th><th>Buyer</th><th>Items</th><th>Total</th><th>UTR</th><th>Status</th><th>Action</th></tr></thead>
       <tbody id="adminOrderRows"></tbody>
     </table>
   </div>
 
   <div id="tabSettings" class="hidden">
+    <div class="admin-form">
+      <h3 style="font-size:16px;margin-bottom:12px;">Payment settings</h3>
+      <div class="field"><label>Your UPI ID (customers pay here)</label><input id="upiIdInput" placeholder="yourname@okhdfcbank"></div>
+      <button class="btn btn-primary" id="saveUpiBtn">Save UPI ID</button>
+    </div>
     <div class="admin-form">
       <h3 style="font-size:16px;margin-bottom:12px;">Change admin password</h3>
       <div class="field"><label>New password</label><input type="password" id="newAdminPass"></div>
@@ -404,7 +416,7 @@
       <h3 style="font-size:16px;margin-bottom:10px;">Setup notes</h3>
       <p style="font-size:14px;color:var(--muted);line-height:1.7;">
         1. <strong>Real Google sign-in:</strong> create an OAuth Client ID in Google Cloud Console → Credentials, add your live domain as an authorized origin, then replace <code>GOOGLE_CLIENT_ID</code> near the top of the script with it.<br><br>
-        2. <strong>Real payments:</strong> the "Pay Now" button currently marks orders paid instantly for demo purposes. To take real money, add a Razorpay/Stripe checkout on a backend and confirm payment before releasing the download link.<br><br>
+        2. <strong>Payments:</strong> customers pay via your UPI ID and submit their transaction/UTR number. Orders sit as "Pending" in the Orders tab until you verify the payment in your bank/UPI app, then click "Mark as paid" to reveal the download links so you can email them to the buyer. Set your UPI ID above first.<br><br>
         3. <strong>File delivery:</strong> replace each product's download link with a real file URL (Google Drive share link, S3, etc.) — ideally one that expires or is unique per order.<br><br>
         4. <strong>Hosting:</strong> this file is self-contained. Upload it as-is to any static host (Netlify, Vercel, GitHub Pages) to go live.
       </p>
@@ -635,17 +647,30 @@ function handleGoogleCredential(resp){
 }
 
 // Checkout
-document.getElementById('checkoutBtn').onclick = ()=>{
+let upiId = '';
+document.getElementById('checkoutBtn').onclick = async ()=>{
   if(!cart.length){ toast('Your cart is empty'); return; }
   closeDrawer();
   document.getElementById('checkoutForm').classList.remove('hidden');
   document.getElementById('checkoutSuccess').classList.add('hidden');
   document.getElementById('checkoutSuccess').innerHTML = '';
   document.getElementById('checkoutSummary').textContent = cart.reduce((n,c)=>n+c.qty,0) + ' item(s) in cart';
-  document.getElementById('payAmount').textContent = cartTotal();
+  const amount = cartTotal();
+  document.getElementById('payAmount').textContent = amount;
+  document.getElementById('coUtr').value = '';
   if(currentUser){
     document.getElementById('coName').value = currentUser.name;
     document.getElementById('coEmail').value = currentUser.email;
+  }
+  upiId = await safeGet('upi-id', true) || '';
+  const upiBox = document.getElementById('upiPayBox');
+  if(upiId){
+    document.getElementById('upiIdDisplay').textContent = upiId;
+    const link = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('Team Secret')}&am=${amount}&cu=INR&tn=${encodeURIComponent('Order payment')}`;
+    document.getElementById('upiPayLink').href = link;
+    upiBox.classList.remove('hidden');
+  } else {
+    upiBox.classList.add('hidden');
   }
   openModal('checkoutModal');
 };
@@ -653,17 +678,19 @@ document.getElementById('checkoutBtn').onclick = ()=>{
 document.getElementById('payBtn').onclick = async ()=>{
   const name = document.getElementById('coName').value.trim();
   const email = document.getElementById('coEmail').value.trim();
+  const utr = document.getElementById('coUtr').value.trim();
   if(!name || !email){ toast('Enter name and email'); return; }
+  if(!utr){ toast('Enter your UPI transaction / UTR number'); return; }
   const items = cart.map(c=>{
     const p = products.find(p=>p.id===c.productId);
     return {title:p.title, qty:c.qty, price:p.price, file:p.file};
   });
   const order = {
     id: 'ORD' + Date.now(),
-    buyerName:name, buyerEmail:email,
+    buyerName:name, buyerEmail:email, utr,
     items, total: cartTotal(),
     date: new Date().toISOString(),
-    status:'paid'
+    status:'pending'
   };
   const rawOrders = await safeGet('orders', true);
   const orders = rawOrders ? JSON.parse(rawOrders) : [];
@@ -678,14 +705,13 @@ document.getElementById('payBtn').onclick = async ()=>{
   box.classList.remove('hidden');
   box.innerHTML = `
     <div class="success-box">
-      <strong>Payment successful (demo).</strong><br>
-      Your downloads:<br>
-      ${items.map(it=>`<a href="${it.file||'#'}" target="_blank">${escapeHtml(it.title)}</a>`).join('<br>')}
+      <strong>Order received.</strong><br>
+      We're verifying your payment (UTR: ${escapeHtml(utr)}). Your download link will be emailed to <strong>${escapeHtml(email)}</strong> once confirmed — usually within a few hours.
     </div>
     <button class="btn btn-outline btn-block" style="margin-top:14px;" onclick="closeModal('checkoutModal')">Done</button>
   `;
   renderAdminOrders();
-  toast('Order placed');
+  toast('Order submitted for verification');
 };
 
 // ---- ADMIN ----
@@ -715,6 +741,7 @@ function showAdminShell(){
   document.getElementById('adminShell').scrollIntoView({behavior:'smooth'});
   renderAdminProducts();
   renderAdminOrders();
+  loadUpiSetting();
 }
 
 document.querySelectorAll('.admin-tab').forEach(tab=>{
@@ -798,16 +825,34 @@ async function renderAdminOrders(){
   const raw = await safeGet('orders', true);
   const orders = raw ? JSON.parse(raw) : [];
   const rows = document.getElementById('adminOrderRows');
-  if(!orders.length){ rows.innerHTML = '<tr><td colspan="5" style="color:var(--muted);">No orders yet.</td></tr>'; return; }
+  if(!orders.length){ rows.innerHTML = '<tr><td colspan="7" style="color:var(--muted);">No orders yet.</td></tr>'; return; }
   rows.innerHTML = orders.map(o=>`
     <tr>
       <td>${o.id}</td>
       <td>${escapeHtml(o.buyerName)}<br><span style="color:var(--muted);font-size:12px;">${escapeHtml(o.buyerEmail)}</span></td>
       <td>${o.items.map(it=>escapeHtml(it.title)+' ×'+it.qty).join('<br>')}</td>
       <td>${money(o.total)}</td>
-      <td>${new Date(o.date).toLocaleDateString('en-IN')}</td>
+      <td>${escapeHtml(o.utr||'—')}</td>
+      <td>${o.status==='paid' ? '<span style="color:var(--mint);font-weight:600;">Paid</span>' : '<span style="color:var(--amber-dark);font-weight:600;">Pending</span>'}</td>
+      <td>
+        ${o.status==='paid'
+          ? o.items.map(it=>`<a href="${it.file||'#'}" target="_blank" style="font-size:12px;">${escapeHtml(it.title)}</a>`).join('<br>')
+          : `<button class="edit" data-id="${o.id}" style="background:none;border:none;text-decoration:underline;font-size:13px;cursor:pointer;">Mark as paid</button>`
+        }
+      </td>
     </tr>
   `).join('');
+  rows.querySelectorAll('.edit[data-id]').forEach(btn=>{
+    btn.onclick = ()=> markOrderPaid(btn.dataset.id, orders);
+  });
+}
+async function markOrderPaid(orderId, orders){
+  const idx = orders.findIndex(o=>o.id===orderId);
+  if(idx===-1) return;
+  orders[idx].status = 'paid';
+  await safeSet('orders', JSON.stringify(orders), true);
+  renderAdminOrders();
+  toast('Order marked as paid — copy the download links and email the buyer');
 }
 
 document.getElementById('saveAdminPassBtn').onclick = async ()=>{
@@ -817,6 +862,17 @@ document.getElementById('saveAdminPassBtn').onclick = async ()=>{
   document.getElementById('newAdminPass').value='';
   toast('Admin password updated');
 };
+
+document.getElementById('saveUpiBtn').onclick = async ()=>{
+  const val = document.getElementById('upiIdInput').value.trim();
+  if(!val){ toast('Enter your UPI ID'); return; }
+  await safeSet('upi-id', val, true);
+  toast('UPI ID saved');
+};
+async function loadUpiSetting(){
+  const val = await safeGet('upi-id', true);
+  document.getElementById('upiIdInput').value = val || '';
+}
 
 document.getElementById('sellCta').onclick = ()=>{
   if(isAdmin){ showAdminShell(); } else { openModal('adminLoginModal'); }
